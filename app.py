@@ -14,7 +14,7 @@ from flask import Flask, render_template, request, send_file, session, redirect,
 app = Flask(__name__)
 
 # --- SECURITY & CONFIG ---
-app.secret_key = "super_secret_admin_key_12345"
+app.secret_key = os.environ.get("SECRET_KEY", "super_secret_admin_key_12345")
 SUPER_ADMIN_EMAIL = "isaacnjuguna518@gmail.com"
 
 # RESEND API SETUP
