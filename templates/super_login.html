@@ -23,7 +23,7 @@
     <h1>🔒 System Access</h1>
     
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
-{% if message %}<div class="success">A new key has been sent to the registered admin email!</div>{% endif %}
+{% if message %}<div class="success">{{ message }}</div>{% endif %}
 
     <form method="POST" action="/super-admin">
       <label for="key">Enter 16-Digit Key</label>
