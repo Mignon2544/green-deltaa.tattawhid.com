@@ -18,7 +18,7 @@ app.secret_key = "super_secret_admin_key_12345"
 SUPER_ADMIN_EMAIL = "isaacnjuguna518@gmail.com"
 
 # RESEND API SETUP
-resend.api_key = "re_7tQkVpEQ_8eem6G6kDAdC4hSErxAfj4Sm" # <--- CHANGE THIS TO A NEW KEY
+resend.api_key = "RESEND_API_KEY" # <--- CHANGE THIS TO A NEW KEY
 
 TEMPLATE_PDF = Path("certificate_template.pdf")
 PDF_SAVE_DIR = Path("generated_pdfs")
