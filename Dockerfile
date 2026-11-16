@@ -19,6 +19,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
+# Create the folder structure and give it read/write permissions
+RUN mkdir -p generated_pdfs/wp-content/uploads && chmod -R 777 generated_pdfs
+
 # Expose the port
 EXPOSE 8080
 
