@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Super Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 30px; }
+    .card { max-width: 600px; margin: auto; background: white; padding: 28px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.08); }
+    h1 { margin-top: 0; font-size: 24px; color: #333; border-bottom: 2px solid #e53e3e; padding-bottom: 10px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; margin-top: 15px; }
+    input { width: 100%; padding: 10px; border: 1px solid #ccd2d8; border-radius: 6px; box-sizing: border-box; }
+    button { margin-top: 22px; width: 100%; padding: 13px; border: 0; border-radius: 6px; background: #e53e3e; color: white; font-size: 16px; font-weight: 700; cursor: pointer; }
+    button:hover { background: #c53030; }
+    .logout { background: #4a5568; margin-top: 10px; }
+    .logout:hover { background: #2d3748; }
+    .success { color: green; font-weight: bold; margin-bottom: 15px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Super Admin Settings</h1>
+    
+    {% if message %}<div class="success">{{ message }}</div>{% endif %}
+
+    <p style="color: #666; font-size: 14px;">Update the login credentials for the standard Admin panel below.</p>
+
+    <form method="POST">
+      <label for="username">Admin Username</label>
+      <input id="username" name="username" value="{{ creds.admin_username }}" required>
+
+      <label for="password">Admin Password</label>
+      <input id="password" name="password" value="{{ creds.admin_password }}" required>
+
+      <button type="submit">Update Admin Credentials</button>
+    </form>
+
+    <a href="/super-admin/logout"><button class="logout">Logout Super Admin</button></a>
+  </div>
+</body>
+</html>
