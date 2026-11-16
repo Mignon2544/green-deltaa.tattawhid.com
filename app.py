@@ -53,12 +53,19 @@ def init_db():
     try:
         conn = get_db_connection()
         c = conn.cursor()
+        # Create admins table if it doesn't exist
         c.execute('''CREATE TABLE IF NOT EXISTS admins
                      (id SERIAL PRIMARY KEY, 
                       username VARCHAR(255) UNIQUE NOT NULL, 
                       password VARCHAR(255) NOT NULL,
                       last_ip VARCHAR(255),
-                      last_login VARCHAR(255))''')
+                      last_login VARCHAR(255),
+                      device TEXT)''')
+        
+        # SAFETY CHECK: If the table already exists from before, this adds the new column without deleting data
+        c.execute("ALTER TABLE admins ADD COLUMN IF NOT EXISTS device TEXT")
+        
+        # Check if default admin exists
         c.execute("SELECT COUNT(*) FROM admins")
         if c.fetchone()[0] == 0:
             c.execute("INSERT INTO admins (username, password) VALUES (%s, %s)", ("admin", "password123"))
@@ -66,7 +73,6 @@ def init_db():
         conn.close()
         print("✅ Database connected and initialized successfully.")
     except Exception as e:
-        # This will print to the Render Logs so we can see why it failed
         print(f"❌ DATABASE INITIALIZATION ERROR: {e}")
 
 init_db()
@@ -153,9 +159,13 @@ def login():
             user = c.fetchone()
             
             if user:
-                client_ip = request.remote_addr
+                # Capture IP and Device
+                client_ip = request.remote_addr or "Unknown IP"
+                user_agent = request.headers.get('User-Agent', 'Unknown Device')
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                c.execute("UPDATE admins SET last_ip=%s, last_login=%s WHERE username=%s", (client_ip, now, username))
+                
+                c.execute("UPDATE admins SET last_ip=%s, last_login=%s, device=%s WHERE username=%s", 
+                          (client_ip, now, user_agent, username))
                 conn.commit()
                 conn.close()
                 
@@ -166,7 +176,6 @@ def login():
                 conn.close()
                 return render_template('login.html', error="Invalid username or password")
         except Exception as e:
-            # Show the exact database error on the screen
             return f"<h1>Database Connection Error</h1><p>{e}</p>", 500
             
     if session.get('logged_in'): return redirect(url_for('index'))
