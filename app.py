@@ -13,7 +13,7 @@ app.secret_key = "super_secret_admin_key_12345"
 # --- ADMIN CREDENTIALS ---
 # Change these to whatever you want your login to be
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "password123"
+ADMIN_PASSWORD = "1234"
 
 TEMPLATE_PDF = Path("certificate_template.pdf")
 
