@@ -5,3 +5,4 @@ Pillow==10.4.0
 gunicorn==21.2.0
 resend
 boto3
+psycopg2-binary
