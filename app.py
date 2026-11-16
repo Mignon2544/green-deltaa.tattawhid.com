@@ -303,3 +303,44 @@ def super_admin_logout():
 
 if __name__ == "__main__":
     app.run(debug=True)
+    # ... (existing routes) ...
+
+@app.route('/admin/settings', methods=['GET', 'POST'])
+def admin_settings():
+    if not session.get('logged_in'): 
+        return redirect(url_for('login'))
+        
+    message = None
+    error = None
+    
+    if request.method == 'POST':
+        new_username = request.form.get('username')
+        new_password = request.form.get('password')
+        current_username = session.get('admin_username')
+        
+        if new_username and new_password:
+            try:
+                conn = sqlite3.connect(DB_FILE)
+                c = conn.cursor()
+                # Update the database where the username matches the logged-in user
+                c.execute("UPDATE admins SET username=?, password=? WHERE username=?", 
+                          (new_username, new_password, current_username))
+                conn.commit()
+                conn.close()
+                
+                # Update the session so they don't get logged out
+                session['admin_username'] = new_username
+                message = "Your credentials have been updated successfully!"
+            except sqlite3.IntegrityError:
+                error = "That username is already taken. Please choose another."
+                
+    # Fetch current data to pre-fill the form
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT username, password FROM admins WHERE username=?", (session.get('admin_username'),))
+    current_admin = c.fetchone()
+    conn.close()
+    
+    return render_template('admin_settings.html', admin=current_admin, message=message, error=error)
+
+# ... (existing routes) ...
