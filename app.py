@@ -1,6 +1,5 @@
 import io
 import os
-import json
 import random
 import string
 import resend
@@ -43,7 +42,6 @@ TEMPLATE_PDF = Path("certificate_template.pdf")
 
 # --- DATABASE INITIALIZATION (PostgreSQL) ---
 def get_db_connection():
-    # connect to Supabase
     return psycopg2.connect(DATABASE_URL)
 
 def init_db():
@@ -75,7 +73,6 @@ def generate_key():
         parts.append(part)
     return "-".join(parts)
 
-# ... (keep make_qr_image, validate_form, and generate_pdf exactly the same) ...
 def make_qr_image(data: str) -> bytes:
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=10, border=2)
     qr.add_data(data)
@@ -135,9 +132,7 @@ def generate_pdf(form: dict, qr_link: str) -> io.BytesIO:
     output.seek(0)
     return output
 
-# --- STANDARD ADMIN ROUTES ---
-
-
+# --- ROUTES ---
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -147,7 +142,6 @@ def login():
         
         conn = get_db_connection()
         c = conn.cursor(cursor_factory=DictCursor)
-        # PostgreSQL uses %s instead of ?
         c.execute("SELECT * FROM admins WHERE username=%s AND password=%s", (username, password))
         user = c.fetchone()
         
@@ -189,36 +183,36 @@ def admin_settings():
     error = None
     current_username = session.get('admin_username')
     
+    conn = get_db_connection()
+    c = conn.cursor()
+    
     if request.method == 'POST':
         new_username = request.form.get('username')
         new_password = request.form.get('password')
         
         if new_username and new_password:
             try:
-                conn = get_db_connection()
-                c = conn.cursor()
                 c.execute("UPDATE admins SET username=%s, password=%s WHERE username=%s", 
                           (new_username, new_password, current_username))
                 conn.commit()
-                conn.close()
                 session['admin_username'] = new_username
+                current_username = new_username
                 message = "Your credentials have been updated successfully!"
-                current_username = new_username # Update the local variable
             except psycopg2.IntegrityError:
-                conn.close()
+                conn.rollback()
                 error = "That username is already taken. Please choose another."
             except Exception as e:
+                conn.rollback()
                 error = f"Database error: {e}"
                 
-    # Fetch the current details safely
-    conn = get_db_connection()
-    # Using a standard cursor instead of DictCursor to prevent Tuple errors
-    c = conn.cursor() 
-    c.execute("SELECT username, password FROM admins WHERE username=%s", (current_username,))
-    current_admin = c.fetchone() # This returns a tuple, e.g., ('admin', 'password123')
+    try:
+        c.execute("SELECT username, password FROM admins WHERE username=%s", (current_username,))
+        current_admin = c.fetchone() 
+    except Exception:
+        current_admin = None
+        
     conn.close()
     
-    # If somehow the admin was deleted while logged in, log them out
     if not current_admin:
         session.clear()
         return redirect(url_for('login'))
@@ -321,6 +315,7 @@ def add_admin():
         conn.close()
         flash("Admin added successfully!", "success")
     except psycopg2.IntegrityError:
+        conn.rollback()
         conn.close()
         flash("Username already exists.", "error")
     return redirect(url_for('super_admin_dashboard'))
