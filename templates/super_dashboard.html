@@ -6,36 +6,106 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 30px; }
-    .card { max-width: 600px; margin: auto; background: white; padding: 28px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.08); }
-    h1 { margin-top: 0; font-size: 24px; color: #333; border-bottom: 2px solid #e53e3e; padding-bottom: 10px; }
-    label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; margin-top: 15px; }
-    input { width: 100%; padding: 10px; border: 1px solid #ccd2d8; border-radius: 6px; box-sizing: border-box; }
-    button { margin-top: 22px; width: 100%; padding: 13px; border: 0; border-radius: 6px; background: #e53e3e; color: white; font-size: 16px; font-weight: 700; cursor: pointer; }
-    button:hover { background: #c53030; }
-    .logout { background: #4a5568; margin-top: 10px; }
-    .logout:hover { background: #2d3748; }
-    .success { color: green; font-weight: bold; margin-bottom: 15px; }
+    .card { max-width: 1000px; margin: auto; background: white; padding: 28px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.08); }
+    h1 { margin-top: 0; font-size: 24px; color: #333; border-bottom: 2px solid #e53e3e; padding-bottom: 10px; margin-bottom: 20px;}
+    
+    /* Flash Messages */
+    .flash-success { background: #c6f6d5; color: #22543d; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-weight: bold; }
+    .flash-error { background: #fed7d7; color: #742a2a; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-weight: bold; }
+
+    /* Table Styles */
+    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+    th { background: #f8f9fa; font-weight: bold; color: #555; }
+    
+    /* Form Styles inside table */
+    .edit-form { display: flex; gap: 8px; }
+    input { padding: 8px; border: 1px solid #ccd2d8; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 13px;}
+    
+    /* Buttons */
+    .btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; color: white; }
+    .btn-save { background: #0b7a4b; }
+    .btn-save:hover { background: #08643d; }
+    .btn-delete { background: #e53e3e; }
+    .btn-delete:hover { background: #c53030; }
+    .btn-add { background: #007bff; width: 100%; padding: 12px; font-size: 15px; margin-top: 10px;}
+    .btn-add:hover { background: #0056b3; }
+    .btn-logout { background: #4a5568; width: 100%; padding: 12px; font-size: 15px; margin-top: 10px; text-decoration: none; display: block; text-align: center; box-sizing: border-box;}
+    .btn-logout:hover { background: #2d3748; }
+
+    .add-admin-box { background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 30px; }
+    .add-admin-box h3 { margin-top: 0; font-size: 16px; color: #333; }
+    .add-admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+    @media (max-width: 768px) {
+      body { padding: 10px; }
+      .edit-form { flex-direction: column; }
+      .add-admin-grid { grid-template-columns: 1fr; }
+      th, td { font-size: 12px; padding: 8px; }
+    }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Super Admin Settings</h1>
     
-    {% if message %}<div class="success">{{ message }}</div>{% endif %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
 
-    <p style="color: #666; font-size: 14px;">Update the login credentials for the standard Admin panel below.</p>
+    <!-- List of Admins -->
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Password</th>
+          <th>Last IP</th>
+          <th>Last Login</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for admin in admins %}
+        <tr>
+          <td colspan="5" style="padding: 0;">
+            <form method="POST" action="/super-admin/edit-admin/{{ admin[0] }}" class="edit-form" style="padding: 12px; align-items: center;">
+              <input type="text" name="username" value="{{ admin[1] }}" required style="flex: 1;">
+              <input type="text" name="password" value="{{ admin[2] }}" required style="flex: 1;">
+              <span style="flex: 1; color: #666; font-size: 12px;">{{ admin[3] or 'Never' }}</span>
+              <span style="flex: 1; color: #666; font-size: 12px;">{{ admin[4] or 'Never' }}</span>
+              
+              <div style="display: flex; gap: 5px;">
+                <button type="submit" class="btn btn-save">Save</button>
+                <!-- Delete form must be separate to prevent nested forms -->
+              </div>
+            </form>
+            <!-- Delete form outside the edit form -->
+            <form method="POST" action="/super-admin/delete-admin/{{ admin[0] }}" style="display: inline; position: absolute; right: 30px; margin-top: -45px;" onsubmit="return confirm('Delete this admin?');">
+              <button type="submit" class="btn btn-delete">🗑️</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
 
-    <form method="POST">
-      <label for="username">Admin Username</label>
-      <input id="username" name="username" value="{{ creds.admin_username }}" required>
+    <!-- Add New Admin -->
+    <div class="add-admin-box">
+      <h3>Add New Admin</h3>
+      <form method="POST" action="/super-admin/add-admin">
+        <div class="add-admin-grid">
+          <input type="text" name="username" placeholder="New Username" required>
+          <input type="text" name="password" placeholder="New Password" required>
+        </div>
+        <button type="submit" class="btn btn-add">Create Admin Account</button>
+      </form>
+    </div>
 
-      <label for="password">Admin Password</label>
-      <input id="password" name="password" value="{{ creds.admin_password }}" required>
-
-      <button type="submit">Update Admin Credentials</button>
-    </form>
-
-    <a href="/super-admin/logout"><button class="logout">Logout Super Admin</button></a>
+    <a href="/super-admin/logout" class="btn-logout">Logout Super Admin</a>
   </div>
 </body>
 </html>
