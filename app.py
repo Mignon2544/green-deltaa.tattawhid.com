@@ -305,8 +305,7 @@ def super_admin_forgot():
             "from": "onboarding@resend.dev", "to": SUPER_ADMIN_EMAIL, "subject": "Super Admin Recovery Key",
             "html": f"<p>Your new 16-digit Super Admin Key is:</p><h2>{new_key}</h2><p>Use this to log in.</p>"
         })
-        return render_template('super_login.html', message=f"A new key has been sent to {SUPER_ADMIN_EMAIL}!")
-    except Exception as e: return render_template('super_login.html', error=f"Failed to send email: {e}")
+        return render_template('super_login.html', message="A new key has been sent to the registered admin email!")    except Exception as e: return render_template('super_login.html', error=f"Failed to send email: {e}")
 
 @app.route('/super-admin/dashboard', methods=['GET'])
 def super_admin_dashboard():
