@@ -3,22 +3,22 @@ import os
 import json
 import random
 import string
-import smtplib
-from email.mime.text import MIMEText
+import resend
 from pathlib import Path
 from datetime import datetime
 
 import fitz  # PyMuPDF
 import qrcode
-from flask import Flask, render_template, request, send_file, session, redirect, url_for, send_from_directory, flash
+from flask import Flask, render_template, request, send_file, session, redirect, url_for, send_from_directory
 
 app = Flask(__name__)
 
 # --- SECURITY & CONFIG ---
 app.secret_key = "super_secret_admin_key_12345"
 SUPER_ADMIN_EMAIL = "isaacnjuguna518@gmail.com"
-SENDER_EMAIL = "isaacnjuguna518@gmail.com" # Email used to send the recovery key
-SENDER_PASSWORD = "Ykwtusadzvvgaxqgr" # <--- REPLACE THIS WITH GOOGLE APP PASSWORD
+
+# RESEND API SETUP
+resend.api_key = "re_7tQkVpEQ_8eem6G6kDAdC4hSErxAfj4Sm" # <--- CHANGE THIS TO A NEW KEY
 
 TEMPLATE_PDF = Path("certificate_template.pdf")
 PDF_SAVE_DIR = Path("generated_pdfs")
@@ -46,7 +46,6 @@ def generate_key():
         parts.append(part)
     return "-".join(parts)
 
-# (Keep make_qr_image, validate_form, and generate_pdf exactly the same)
 def make_qr_image(data: str) -> bytes:
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=10, border=2)
     qr.add_data(data)
@@ -106,8 +105,7 @@ def generate_pdf(form: dict, qr_link: str) -> io.BytesIO:
     output.seek(0)
     return output
 
-
-# --- STANDARD ROUTES ---
+# --- ROUTES ---
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -188,7 +186,6 @@ def delete_file():
 def serve_pdf(year, month, filename):
     return send_from_directory(PDF_SAVE_DIR / "wp-content" / "uploads" / year / month, filename)
 
-
 # --- SUPER ADMIN ROUTES ---
 
 @app.route('/super-admin', methods=['GET', 'POST'])
@@ -197,7 +194,6 @@ def super_admin_login():
     
     if request.method == 'POST':
         key = request.form.get('key')
-        # In production, store this key in a secure database or env var. For now, we use session.
         valid_key = session.get('super_key')
         
         if valid_key and key == valid_key:
@@ -210,25 +206,19 @@ def super_admin_login():
 
 @app.route('/super-admin/forgot', methods=['POST'])
 def super_admin_forgot():
-    # Generate a new 16-digit key
     new_key = generate_key()
-    session['super_key'] = new_key # Store in session so it can be verified
+    session['super_key'] = new_key 
     
-    # Send Email
-    subject = "Super Admin Recovery Key"
-    body = f"Your new 16-digit Super Admin Key is:\n\n{new_key}\n\nUse this to log in."
-    msg = MIMEText(body)
-    msg['Subject'] = subject
-    msg['From'] = SENDER_EMAIL
-    msg['To'] = SUPER_ADMIN_EMAIL
-
     try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.send_message(msg)
+        resend.Emails.send({
+            "from": "onboarding@resend.dev",
+            "to": SUPER_ADMIN_EMAIL,
+            "subject": "Super Admin Recovery Key",
+            "html": f"<p>Your new 16-digit Super Admin Key is:</p><h2>{new_key}</h2><p>Use this to log in.</p>"
+        })
         return render_template('super_login.html', message=f"A new key has been sent to {SUPER_ADMIN_EMAIL}!")
     except Exception as e:
-        return render_template('super_login.html', error=f"Failed to send email. Check App Password. Error: {e}")
+        return render_template('super_login.html', error=f"Failed to send email: {e}")
 
 @app.route('/super-admin/dashboard', methods=['GET', 'POST'])
 def super_admin_dashboard():
