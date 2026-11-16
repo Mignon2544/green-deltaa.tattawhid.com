@@ -4,12 +4,14 @@ import json
 import random
 import string
 import resend
+import boto3
+from botocore.exceptions import ClientError
 from pathlib import Path
 from datetime import datetime
 
 import fitz  # PyMuPDF
 import qrcode
-from flask import Flask, render_template, request, send_file, session, redirect, url_for, send_from_directory
+from flask import Flask, render_template, request, send_file, session, redirect, url_for
 
 app = Flask(__name__)
 
@@ -18,11 +20,25 @@ app.secret_key = os.environ.get("SECRET_KEY", "super_secret_admin_key_12345")
 SUPER_ADMIN_EMAIL = "isaacnjuguna518@gmail.com"
 
 # RESEND API SETUP
-resend.api_key = os.environ.get("RESEND_API_KEY") # <--- CHANGE THIS TO A NEW KEY
+resend.api_key = os.environ.get("RESEND_API_KEY")
+
+# CLOUDFLARE R2 SETUP
+R2_ACCESS_KEY = os.environ.get("R2_ACCESS_KEY")
+R2_SECRET_KEY = os.environ.get("R2_SECRET_KEY")
+R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME", "pdf-storage")
+R2_ENDPOINT = os.environ.get("R2_ENDPOINT")
+R2_PUBLIC_URL = os.environ.get("R2_PUBLIC_URL")
+
+# Initialize S3 client for Cloudflare R2
+s3_client = boto3.client(
+    's3',
+    endpoint_url=R2_ENDPOINT,
+    aws_access_key_id=R2_ACCESS_KEY,
+    aws_secret_access_key=R2_SECRET_KEY,
+    region_name='auto'
+)
 
 TEMPLATE_PDF = Path("certificate_template.pdf")
-PDF_SAVE_DIR = Path("generated_pdfs")
-PDF_SAVE_DIR.mkdir(exist_ok=True)
 USERS_FILE = Path("users.json")
 
 # Ensure users.json exists
@@ -39,7 +55,6 @@ def save_admin_creds(username, password):
         json.dump({"admin_username": username, "admin_password": password}, f)
 
 def generate_key():
-    """Generates a 16-digit key in the format XXXX-XXXX-XXXX-XXXX"""
     parts = []
     for _ in range(4):
         part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
@@ -138,53 +153,72 @@ def generate():
     form = request.form.to_dict()
     errors = validate_form(form)
     if errors: return "Validation failed:<br>" + "<br>".join(errors), 400
+    
     try:
-        base_url = request.host_url.rstrip('/')
         policy_no = form['policy_no']
         now = datetime.now()
         year_str, month_str = now.strftime("%Y"), now.strftime("%m")
-        sub_dir = PDF_SAVE_DIR / "wp-content" / "uploads" / year_str / month_str
-        sub_dir.mkdir(parents=True, exist_ok=True) 
-        qr_link = f"{base_url}/wp-content/uploads/{year_str}/{month_str}/{policy_no}.pdf"
+        
+        # Construct the R2 Object Key (filename in the bucket)
+        object_key = f"wp-content/uploads/{year_str}/{month_str}/{policy_no}.pdf"
+        
+        # Construct the public QR link
+        qr_link = f"{R2_PUBLIC_URL}/{object_key}"
+        
+        # Generate the PDF
         pdf_bytes = generate_pdf(form, qr_link)
-        filepath = sub_dir / f"{policy_no}.pdf"
-        with open(filepath, "wb") as f: f.write(pdf_bytes.getvalue())
-        download_link = f"/wp-content/uploads/{year_str}/{month_str}/{policy_no}.pdf"
+        
+        # Upload to Cloudflare R2
+        s3_client.put_object(
+            Bucket=R2_BUCKET_NAME,
+            Key=object_key,
+            Body=pdf_bytes.getvalue(),
+            ContentType='application/pdf'
+        )
+
         return f"""<div style="font-family: Arial; text-align: center; margin-top: 50px;">
-            <h2 style="color: green;">✅ PDF Generated Successfully!</h2>
-            <a href="{download_link}" style="padding: 10px 20px; background: #0b7a4b; color: white; text-decoration: none; border-radius: 5px;">View / Download PDF</a>
+            <h2 style="color: green;">✅ PDF Generated & Uploaded!</h2>
+            <a href="{qr_link}" target="_blank" style="padding: 10px 20px; background: #0b7a4b; color: white; text-decoration: none; border-radius: 5px;">View / Download PDF</a>
             <br><br><a href="/" style="color: #333;">← Back to Admin Panel</a></div>"""
-    except Exception as e: return f"An error occurred: {e}", 500
+    except Exception as e: 
+        return f"An error occurred: {e}", 500
 
 @app.route("/generated")
 def generated_files():
     if not session.get('logged_in'): return redirect(url_for('login'))
+    
     files_list = []
-    for root, dirs, files in os.walk(PDF_SAVE_DIR):
-        for file in files:
-            if file.endswith(".pdf"):
-                full_path = Path(root) / file
-                files_list.append({
-                    "name": file, "rel_path": full_path.relative_to(PDF_SAVE_DIR).as_posix(),
-                    "size": round(full_path.stat().st_size / 1024, 1),
-                    "date": datetime.fromtimestamp(full_path.stat().st_mtime).strftime("%b %d, %Y %H:%M")
-                })
-    files_list.sort(key=lambda x: x['date'], reverse=True)
+    try:
+        # List files from Cloudflare R2
+        response = s3_client.list_objects_v2(Bucket=R2_BUCKET_NAME)
+        if 'Contents' in response:
+            for obj in response['Contents']:
+                if obj['Key'].endswith('.pdf'):
+                    files_list.append({
+                        "name": obj['Key'].split('/')[-1],
+                        "rel_path": obj['Key'],
+                        "size": round(obj['Size'] / 1024, 1),
+                        "date": obj['LastModified'].strftime("%b %d, %Y %H:%M")
+                    })
+        # Sort newest first
+        files_list.sort(key=lambda x: x['date'], reverse=True)
+    except Exception as e:
+        return f"Error loading files from R2: {e}", 500
+        
     return render_template("generated.html", files=files_list)
 
 @app.route("/delete-file", methods=["POST"])
 def delete_file():
     if not session.get('logged_in'): return "Unauthorized", 403
     files_to_delete = request.form.getlist("selected_files")
-    for rel_path in files_to_delete:
-        safe_path = (PDF_SAVE_DIR / rel_path).resolve()
-        if str(safe_path).startswith(str(PDF_SAVE_DIR.resolve())) and safe_path.exists():
-            safe_path.unlink() 
+    
+    try:
+        for object_key in files_to_delete:
+            s3_client.delete_object(Bucket=R2_BUCKET_NAME, Key=object_key)
+    except Exception as e:
+        return f"Error deleting files: {e}", 500
+        
     return redirect(url_for('generated_files'))
-
-@app.route("/wp-content/uploads/<year>/<month>/<filename>")
-def serve_pdf(year, month, filename):
-    return send_from_directory(PDF_SAVE_DIR / "wp-content" / "uploads" / year / month, filename)
 
 # --- SUPER ADMIN ROUTES ---
 
