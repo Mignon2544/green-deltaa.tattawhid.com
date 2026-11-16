@@ -5,6 +5,18 @@
   <title>Admin Panel - PDF Generator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
+        /* Form Grid Styles */
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    /* ... (keep your existing label, input, button styles here) ... */
+
+    /* 👇 ADD THIS MOBILE FIX 👇 */
+    @media (max-width: 768px) {
+      body { padding: 15px; } /* Reduce outer padding on phone */
+      .card { padding: 20px; } /* Reduce inner padding */
+      .grid { grid-template-columns: 1fr; gap: 12px; } /* Force 1 column */
+      .header-container { flex-direction: column; align-items: flex-start; gap: 10px; } /* Stack header text and button */
+      h1 { font-size: 20px; } /* Slightly smaller text for mobile */
+    }
     body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 30px; }
     .card { max-width: 900px; margin: auto; background: white; padding: 28px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.08); position: relative; }
     
