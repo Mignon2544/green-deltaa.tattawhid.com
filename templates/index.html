@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Admin Panel - PDF Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 30px; }
+    .card { max-width: 900px; margin: auto; background: white; padding: 28px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.08); position: relative; }
+    
+    /* Updated Header Styles */
+    .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+    h1 { margin: 0; font-size: 24px; color: #333; }
+    .logout-btn { background: #d9534f; color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: bold; transition: background 0.2s; }
+    .logout-btn:hover { background: #c9302c; }
+
+    /* Form Grid Styles */
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; color: #444; }
+    input, select { width: 100%; padding: 10px; border: 1px solid #ccd2d8; border-radius: 6px; box-sizing: border-box; font-family: inherit; }
+    input:focus, select:focus { outline: none; border-color: #0b7a4b; box-shadow: 0 0 0 2px rgba(11,122,75,0.2); }
+    button { margin-top: 25px; width: 100%; padding: 14px; border: 0; border-radius: 6px; background: #0b7a4b; color: white; font-size: 16px; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+    button:hover { background: #08643d; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    
+    <!-- Updated Header with Logout -->
+    <div class="header-container">
+      <h1>Certificate of Insurance Admin Panel</h1>
+      <a href="/logout" class="logout-btn">Logout</a>
+    </div>
+
+    <form method="POST" action="/generate">
+      <div class="grid">
+        <div>
+          <label for="no">No.</label>
+          <input id="no" name="no" value="1" required>
+        </div>
+        
+        <div>
+          <label for="insured_name">Insured Name</label>
+          <input id="insured_name" name="insured_name" value="SAIRAJ HASAN FIROZ" required>
+        </div>
+
+        <div>
+          <label for="gender">Gender</label>
+          <select id="gender" name="gender" required>
+            <option value="MALE">MALE</option>
+            <option value="FEMALE">FEMALE</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="dob">DOB</label>
+          <input id="dob" name="dob" type="date" value="1996-10-04" required>
+        </div>
+
+        <div>
+          <label for="nationality">Nationality</label>
+          <input id="nationality" name="nationality" value="Bangladesh" required>
+        </div>
+
+        <div>
+          <label for="policy_no">Policy No.</label>
+          <input id="policy_no" name="policy_no" value="T2P-2026-BDB2B-0000962" required>
+        </div>
+
+        <div>
+          <label for="area_of_travel">Area of Travel</label>
+          <input id="area_of_travel" name="area_of_travel" value="Worldwide (Excluding USA/CAN)" required>
+        </div>
+
+        <div>
+          <label for="plan_type">Plan Type</label>
+          <input id="plan_type" name="plan_type" value="Outbound, Silver (Covid Plus)" required>
+        </div>
+
+        <div>
+          <label for="issue_date">Issue Date</label>
+          <input id="issue_date" name="issue_date" type="date" value="2026-06-21" required>
+        </div>
+
+        <div>
+          <label for="departure_date">Departure Date</label>
+          <input id="departure_date" name="departure_date" type="date" value="2026-08-01" required>
+        </div>
+
+        <div>
+          <label for="return_date">Return Date</label>
+          <input id="return_date" name="return_date" type="date" value="2027-07-31" required>
+        </div>
+
+        <div>
+          <label for="validity">Validity</label>
+          <input id="validity" name="validity" value="Annual Plan (Return)" required>
+        </div>
+
+        <div>
+          <label for="passport_no">Passport No.</label>
+          <input id="passport_no" name="passport_no" value="EM0358082" required>
+        </div>
+      </div>
+
+      <button type="submit">Generate PDF</button>
+    </form>
+  </div>
+</body>
+</html>
