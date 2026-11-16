@@ -5,7 +5,8 @@ import random
 import string
 import resend
 import boto3
-import sqlite3
+import psycopg2
+from psycopg2.extras import DictCursor
 from pathlib import Path
 from datetime import datetime
 
@@ -18,6 +19,7 @@ app = Flask(__name__)
 # --- SECURITY & CONFIG ---
 app.secret_key = os.environ.get("SECRET_KEY", "super_secret_admin_key_12345")
 SUPER_ADMIN_EMAIL = "isaacnjuguna518@gmail.com"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # RESEND API SETUP
 resend.api_key = os.environ.get("RESEND_API_KEY")
@@ -38,27 +40,33 @@ s3_client = boto3.client(
 )
 
 TEMPLATE_PDF = Path("certificate_template.pdf")
-DB_FILE = Path("admins.db")
 
-# --- DATABASE INITIALIZATION ---
+# --- DATABASE INITIALIZATION (PostgreSQL) ---
+def get_db_connection():
+    # connect to Supabase
+    return psycopg2.connect(DATABASE_URL)
+
 def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    # Create admins table
-    c.execute('''CREATE TABLE IF NOT EXISTS admins
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                  username TEXT UNIQUE, 
-                  password TEXT,
-                  last_ip TEXT,
-                  last_login TEXT)''')
-    # Create default admin if none exists
-    c.execute("SELECT COUNT(*) FROM admins")
-    if c.fetchone()[0] == 0:
-        c.execute("INSERT INTO admins (username, password) VALUES (?, ?)", ("admin", "password123"))
-    conn.commit()
-    conn.close()
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        # Create admins table (PostgreSQL syntax)
+        c.execute('''CREATE TABLE IF NOT EXISTS admins
+                     (id SERIAL PRIMARY KEY, 
+                      username VARCHAR(255) UNIQUE NOT NULL, 
+                      password VARCHAR(255) NOT NULL,
+                      last_ip VARCHAR(255),
+                      last_login VARCHAR(255))''')
+        # Check if default admin exists
+        c.execute("SELECT COUNT(*) FROM admins")
+        if c.fetchone()[0] == 0:
+            c.execute("INSERT INTO admins (username, password) VALUES (%s, %s)", ("admin", "password123"))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Database initialization error: {e}")
 
-init_db() # Run this on startup
+init_db()
 
 def generate_key():
     parts = []
@@ -135,21 +143,21 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute("SELECT * FROM admins WHERE username=? AND password=?", (username, password))
+        conn = get_db_connection()
+        c = conn.cursor(cursor_factory=DictCursor)
+        # PostgreSQL uses %s instead of ?
+        c.execute("SELECT * FROM admins WHERE username=%s AND password=%s", (username, password))
         user = c.fetchone()
         
         if user:
-            # Update IP and Last Login Time
             client_ip = request.remote_addr
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            c.execute("UPDATE admins SET last_ip=?, last_login=? WHERE username=?", (client_ip, now, username))
+            c.execute("UPDATE admins SET last_ip=%s, last_login=%s WHERE username=%s", (client_ip, now, username))
             conn.commit()
             conn.close()
             
             session['logged_in'] = True
-            session['admin_username'] = username # Store name for editing
+            session['admin_username'] = username 
             return redirect(url_for('index'))
         else:
             conn.close()
@@ -170,9 +178,41 @@ def index():
     if not session.get('logged_in'): return redirect(url_for('login'))
     return render_template("index.html")
 
+@app.route('/admin/settings', methods=['GET', 'POST'])
+def admin_settings():
+    if not session.get('logged_in'): return redirect(url_for('login'))
+    message = None
+    error = None
+    
+    if request.method == 'POST':
+        new_username = request.form.get('username')
+        new_password = request.form.get('password')
+        current_username = session.get('admin_username')
+        
+        if new_username and new_password:
+            try:
+                conn = get_db_connection()
+                c = conn.cursor()
+                c.execute("UPDATE admins SET username=%s, password=%s WHERE username=%s", 
+                          (new_username, new_password, current_username))
+                conn.commit()
+                conn.close()
+                session['admin_username'] = new_username
+                message = "Your credentials have been updated successfully!"
+            except psycopg2.IntegrityError:
+                conn.close()
+                error = "That username is already taken. Please choose another."
+                
+    conn = get_db_connection()
+    c = conn.cursor(cursor_factory=DictCursor)
+    c.execute("SELECT username, password FROM admins WHERE username=%s", (session.get('admin_username'),))
+    current_admin = c.fetchone()
+    conn.close()
+    
+    return render_template('admin_settings.html', admin=current_admin, message=message, error=error)
+
 @app.route("/generate", methods=["POST"])
 def generate():
-    # ... (Keep the exact same generate logic from the previous version) ...
     if not session.get('logged_in'): return "Unauthorized", 403
     form = request.form.to_dict()
     errors = validate_form(form)
@@ -191,7 +231,6 @@ def generate():
             <br><br><a href="/" style="color: #333;">← Back to Admin Panel</a></div>"""
     except Exception as e: return f"An error occurred: {e}", 500
 
-# ... (Keep /generated and /delete-file exactly the same) ...
 @app.route("/generated")
 def generated_files():
     if not session.get('logged_in'): return redirect(url_for('login'))
@@ -246,7 +285,7 @@ def super_admin_forgot():
 def super_admin_dashboard():
     if not session.get('super_admin'): return redirect(url_for('super_admin_login'))
     
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT * FROM admins")
     admins = c.fetchall()
@@ -261,13 +300,14 @@ def add_admin():
     password = request.form.get('password')
     
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = get_db_connection()
         c = conn.cursor()
-        c.execute("INSERT INTO admins (username, password) VALUES (?, ?)", (username, password))
+        c.execute("INSERT INTO admins (username, password) VALUES (%s, %s)", (username, password))
         conn.commit()
         conn.close()
         flash("Admin added successfully!", "success")
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
+        conn.close()
         flash("Username already exists.", "error")
     return redirect(url_for('super_admin_dashboard'))
 
@@ -277,9 +317,9 @@ def edit_admin(id):
     new_username = request.form.get('username')
     new_password = request.form.get('password')
     
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute("UPDATE admins SET username=?, password=? WHERE id=?", (new_username, new_password, id))
+    c.execute("UPDATE admins SET username=%s, password=%s WHERE id=%s", (new_username, new_password, id))
     conn.commit()
     conn.close()
     flash("Admin updated successfully!", "success")
@@ -288,9 +328,9 @@ def edit_admin(id):
 @app.route('/super-admin/delete-admin/<int:id>', methods=['POST'])
 def delete_admin(id):
     if not session.get('super_admin'): return redirect(url_for('super_admin_login'))
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute("DELETE FROM admins WHERE id=?", (id,))
+    c.execute("DELETE FROM admins WHERE id=%s", (id,))
     conn.commit()
     conn.close()
     flash("Admin deleted successfully!", "success")
@@ -303,44 +343,3 @@ def super_admin_logout():
 
 if __name__ == "__main__":
     app.run(debug=True)
-    # ... (existing routes) ...
-
-@app.route('/admin/settings', methods=['GET', 'POST'])
-def admin_settings():
-    if not session.get('logged_in'): 
-        return redirect(url_for('login'))
-        
-    message = None
-    error = None
-    
-    if request.method == 'POST':
-        new_username = request.form.get('username')
-        new_password = request.form.get('password')
-        current_username = session.get('admin_username')
-        
-        if new_username and new_password:
-            try:
-                conn = sqlite3.connect(DB_FILE)
-                c = conn.cursor()
-                # Update the database where the username matches the logged-in user
-                c.execute("UPDATE admins SET username=?, password=? WHERE username=?", 
-                          (new_username, new_password, current_username))
-                conn.commit()
-                conn.close()
-                
-                # Update the session so they don't get logged out
-                session['admin_username'] = new_username
-                message = "Your credentials have been updated successfully!"
-            except sqlite3.IntegrityError:
-                error = "That username is already taken. Please choose another."
-                
-    # Fetch current data to pre-fill the form
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("SELECT username, password FROM admins WHERE username=?", (session.get('admin_username'),))
-    current_admin = c.fetchone()
-    conn.close()
-    
-    return render_template('admin_settings.html', admin=current_admin, message=message, error=error)
-
-# ... (existing routes) ...
