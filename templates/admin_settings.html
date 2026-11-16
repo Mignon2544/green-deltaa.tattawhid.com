@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Admin Settings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 30px; }
+    .card { max-width: 500px; margin: auto; background: white; padding: 28px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.08); }
+    h1 { margin-top: 0; font-size: 22px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; margin-top: 15px; color: #444; }
+    input { width: 100%; padding: 10px; border: 1px solid #ccd2d8; border-radius: 6px; box-sizing: border-box; }
+    button { margin-top: 22px; width: 100%; padding: 13px; border: 0; border-radius: 6px; background: #0b7a4b; color: white; font-size: 16px; font-weight: 700; cursor: pointer; }
+    button:hover { background: #08643d; }
+    .back-btn { display: block; text-align: center; margin-top: 15px; color: #666; text-decoration: none; font-size: 14px; }
+    .back-btn:hover { text-decoration: underline; }
+    .success { background: #c6f6d5; color: #22543d; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-weight: bold; font-size: 14px;}
+    .error { background: #fed7d7; color: #742a2a; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-weight: bold; font-size: 14px;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Account Settings</h1>
+    
+    {% if message %}<div class="success">{{ message }}</div>{% endif %}
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+    <form method="POST">
+      <label for="username">Username</label>
+      <input id="username" name="username" value="{{ admin[0] }}" required>
+
+      <label for="password">Password</label>
+      <input id="password" name="password" value="{{ admin[1] }}" required>
+
+      <button type="submit">Update My Credentials</button>
+    </form>
+    
+    <a href="/" class="back-btn">← Back to Dashboard</a>
+  </div>
+</body>
+</html>
