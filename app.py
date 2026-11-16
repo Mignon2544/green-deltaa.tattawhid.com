@@ -12,7 +12,7 @@ app = Flask(__name__)
 # --- SECURITY & CONFIG ---
 app.secret_key = "super_secret_admin_key_12345" # Change this in production
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "P1123"
+ADMIN_PASSWORD = "root001"
 
 TEMPLATE_PDF = Path("certificate_template.pdf")
 
