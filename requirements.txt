@@ -1,5 +1,5 @@
-Flask
-pymupdf
-qrcode[pil]
-Pillow
-gunicorn
+Flask==3.0.3
+pymupdf==1.24.10
+qrcode[pil]==7.4.2
+Pillow==10.4.0
+gunicorn==21.2.0
