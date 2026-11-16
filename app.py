@@ -5,13 +5,13 @@ import random
 import string
 import resend
 import boto3
-from botocore.exceptions import ClientError
+import sqlite3
 from pathlib import Path
 from datetime import datetime
 
 import fitz  # PyMuPDF
 import qrcode
-from flask import Flask, render_template, request, send_file, session, redirect, url_for
+from flask import Flask, render_template, request, send_file, session, redirect, url_for, flash
 
 app = Flask(__name__)
 
@@ -29,7 +29,6 @@ R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME", "pdf-storage")
 R2_ENDPOINT = os.environ.get("R2_ENDPOINT")
 R2_PUBLIC_URL = os.environ.get("R2_PUBLIC_URL")
 
-# Initialize S3 client for Cloudflare R2
 s3_client = boto3.client(
     's3',
     endpoint_url=R2_ENDPOINT,
@@ -39,20 +38,27 @@ s3_client = boto3.client(
 )
 
 TEMPLATE_PDF = Path("certificate_template.pdf")
-USERS_FILE = Path("users.json")
+DB_FILE = Path("admins.db")
 
-# Ensure users.json exists
-if not USERS_FILE.exists():
-    with open(USERS_FILE, "w") as f:
-        json.dump({"admin_username": "admin", "admin_password": "password123"}, f)
+# --- DATABASE INITIALIZATION ---
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    # Create admins table
+    c.execute('''CREATE TABLE IF NOT EXISTS admins
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                  username TEXT UNIQUE, 
+                  password TEXT,
+                  last_ip TEXT,
+                  last_login TEXT)''')
+    # Create default admin if none exists
+    c.execute("SELECT COUNT(*) FROM admins")
+    if c.fetchone()[0] == 0:
+        c.execute("INSERT INTO admins (username, password) VALUES (?, ?)", ("admin", "password123"))
+    conn.commit()
+    conn.close()
 
-def get_admin_creds():
-    with open(USERS_FILE, "r") as f:
-        return json.load(f)
-
-def save_admin_creds(username, password):
-    with open(USERS_FILE, "w") as f:
-        json.dump({"admin_username": username, "admin_password": password}, f)
+init_db() # Run this on startup
 
 def generate_key():
     parts = []
@@ -61,6 +67,7 @@ def generate_key():
         parts.append(part)
     return "-".join(parts)
 
+# ... (keep make_qr_image, validate_form, and generate_pdf exactly the same) ...
 def make_qr_image(data: str) -> bytes:
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=10, border=2)
     qr.add_data(data)
@@ -120,19 +127,34 @@ def generate_pdf(form: dict, qr_link: str) -> io.BytesIO:
     output.seek(0)
     return output
 
-# --- ROUTES ---
+# --- STANDARD ADMIN ROUTES ---
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        creds = get_admin_creds()
-        if username == creds["admin_username"] and password == creds["admin_password"]:
+        
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("SELECT * FROM admins WHERE username=? AND password=?", (username, password))
+        user = c.fetchone()
+        
+        if user:
+            # Update IP and Last Login Time
+            client_ip = request.remote_addr
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            c.execute("UPDATE admins SET last_ip=?, last_login=? WHERE username=?", (client_ip, now, username))
+            conn.commit()
+            conn.close()
+            
             session['logged_in'] = True
+            session['admin_username'] = username # Store name for editing
             return redirect(url_for('index'))
         else:
+            conn.close()
             return render_template('login.html', error="Invalid username or password")
+            
     if session.get('logged_in'): return redirect(url_for('index'))
     return render_template('login.html')
 
@@ -140,6 +162,7 @@ def login():
 def logout():
     session.pop('logged_in', None)
     session.pop('super_admin', None)
+    session.pop('admin_username', None)
     return redirect(url_for('login'))
 
 @app.route("/")
@@ -149,75 +172,47 @@ def index():
 
 @app.route("/generate", methods=["POST"])
 def generate():
+    # ... (Keep the exact same generate logic from the previous version) ...
     if not session.get('logged_in'): return "Unauthorized", 403
     form = request.form.to_dict()
     errors = validate_form(form)
     if errors: return "Validation failed:<br>" + "<br>".join(errors), 400
-    
     try:
         policy_no = form['policy_no']
         now = datetime.now()
         year_str, month_str = now.strftime("%Y"), now.strftime("%m")
-        
-        # Construct the R2 Object Key (filename in the bucket)
         object_key = f"wp-content/uploads/{year_str}/{month_str}/{policy_no}.pdf"
-        
-        # Construct the public QR link
         qr_link = f"{R2_PUBLIC_URL}/{object_key}"
-        
-        # Generate the PDF
         pdf_bytes = generate_pdf(form, qr_link)
-        
-        # Upload to Cloudflare R2
-        s3_client.put_object(
-            Bucket=R2_BUCKET_NAME,
-            Key=object_key,
-            Body=pdf_bytes.getvalue(),
-            ContentType='application/pdf'
-        )
-
+        s3_client.put_object(Bucket=R2_BUCKET_NAME, Key=object_key, Body=pdf_bytes.getvalue(), ContentType='application/pdf')
         return f"""<div style="font-family: Arial; text-align: center; margin-top: 50px;">
             <h2 style="color: green;">✅ PDF Generated & Uploaded!</h2>
             <a href="{qr_link}" target="_blank" style="padding: 10px 20px; background: #0b7a4b; color: white; text-decoration: none; border-radius: 5px;">View / Download PDF</a>
             <br><br><a href="/" style="color: #333;">← Back to Admin Panel</a></div>"""
-    except Exception as e: 
-        return f"An error occurred: {e}", 500
+    except Exception as e: return f"An error occurred: {e}", 500
 
+# ... (Keep /generated and /delete-file exactly the same) ...
 @app.route("/generated")
 def generated_files():
     if not session.get('logged_in'): return redirect(url_for('login'))
-    
     files_list = []
     try:
-        # List files from Cloudflare R2
         response = s3_client.list_objects_v2(Bucket=R2_BUCKET_NAME)
         if 'Contents' in response:
             for obj in response['Contents']:
                 if obj['Key'].endswith('.pdf'):
-                    files_list.append({
-                        "name": obj['Key'].split('/')[-1],
-                        "rel_path": obj['Key'],
-                        "size": round(obj['Size'] / 1024, 1),
-                        "date": obj['LastModified'].strftime("%b %d, %Y %H:%M")
-                    })
-        # Sort newest first
+                    files_list.append({"name": obj['Key'].split('/')[-1], "rel_path": obj['Key'], "size": round(obj['Size'] / 1024, 1), "date": obj['LastModified'].strftime("%b %d, %Y %H:%M")})
         files_list.sort(key=lambda x: x['date'], reverse=True)
-    except Exception as e:
-        return f"Error loading files from R2: {e}", 500
-        
+    except Exception as e: return f"Error loading files from R2: {e}", 500
     return render_template("generated.html", files=files_list)
 
 @app.route("/delete-file", methods=["POST"])
 def delete_file():
     if not session.get('logged_in'): return "Unauthorized", 403
     files_to_delete = request.form.getlist("selected_files")
-    
     try:
-        for object_key in files_to_delete:
-            s3_client.delete_object(Bucket=R2_BUCKET_NAME, Key=object_key)
-    except Exception as e:
-        return f"Error deleting files: {e}", 500
-        
+        for object_key in files_to_delete: s3_client.delete_object(Bucket=R2_BUCKET_NAME, Key=object_key)
+    except Exception as e: return f"Error deleting files: {e}", 500
     return redirect(url_for('generated_files'))
 
 # --- SUPER ADMIN ROUTES ---
@@ -225,47 +220,81 @@ def delete_file():
 @app.route('/super-admin', methods=['GET', 'POST'])
 def super_admin_login():
     if session.get('super_admin'): return redirect(url_for('super_admin_dashboard'))
-    
     if request.method == 'POST':
         key = request.form.get('key')
         valid_key = session.get('super_key')
-        
         if valid_key and key == valid_key:
             session['super_admin'] = True
             return redirect(url_for('super_admin_dashboard'))
         else:
             return render_template('super_login.html', error="Invalid or expired 16-digit key.")
-            
     return render_template('super_login.html')
 
 @app.route('/super-admin/forgot', methods=['POST'])
 def super_admin_forgot():
     new_key = generate_key()
     session['super_key'] = new_key 
-    
     try:
         resend.Emails.send({
-            "from": "onboarding@resend.dev",
-            "to": SUPER_ADMIN_EMAIL,
-            "subject": "Super Admin Recovery Key",
+            "from": "onboarding@resend.dev", "to": SUPER_ADMIN_EMAIL, "subject": "Super Admin Recovery Key",
             "html": f"<p>Your new 16-digit Super Admin Key is:</p><h2>{new_key}</h2><p>Use this to log in.</p>"
         })
         return render_template('super_login.html', message=f"A new key has been sent to {SUPER_ADMIN_EMAIL}!")
-    except Exception as e:
-        return render_template('super_login.html', error=f"Failed to send email: {e}")
+    except Exception as e: return render_template('super_login.html', error=f"Failed to send email: {e}")
 
-@app.route('/super-admin/dashboard', methods=['GET', 'POST'])
+@app.route('/super-admin/dashboard', methods=['GET'])
 def super_admin_dashboard():
     if not session.get('super_admin'): return redirect(url_for('super_admin_login'))
     
-    if request.method == 'POST':
-        new_username = request.form.get('username')
-        new_password = request.form.get('password')
-        if new_username and new_password:
-            save_admin_creds(new_username, new_password)
-            return render_template('super_dashboard.html', creds=get_admin_creds(), message="Admin credentials updated successfully!")
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT * FROM admins")
+    admins = c.fetchall()
+    conn.close()
     
-    return render_template('super_dashboard.html', creds=get_admin_creds())
+    return render_template('super_dashboard.html', admins=admins)
+
+@app.route('/super-admin/add-admin', methods=['POST'])
+def add_admin():
+    if not session.get('super_admin'): return redirect(url_for('super_admin_login'))
+    username = request.form.get('username')
+    password = request.form.get('password')
+    
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("INSERT INTO admins (username, password) VALUES (?, ?)", (username, password))
+        conn.commit()
+        conn.close()
+        flash("Admin added successfully!", "success")
+    except sqlite3.IntegrityError:
+        flash("Username already exists.", "error")
+    return redirect(url_for('super_admin_dashboard'))
+
+@app.route('/super-admin/edit-admin/<int:id>', methods=['POST'])
+def edit_admin(id):
+    if not session.get('super_admin'): return redirect(url_for('super_admin_login'))
+    new_username = request.form.get('username')
+    new_password = request.form.get('password')
+    
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("UPDATE admins SET username=?, password=? WHERE id=?", (new_username, new_password, id))
+    conn.commit()
+    conn.close()
+    flash("Admin updated successfully!", "success")
+    return redirect(url_for('super_admin_dashboard'))
+
+@app.route('/super-admin/delete-admin/<int:id>', methods=['POST'])
+def delete_admin(id):
+    if not session.get('super_admin'): return redirect(url_for('super_admin_login'))
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("DELETE FROM admins WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
+    flash("Admin deleted successfully!", "success")
+    return redirect(url_for('super_admin_dashboard'))
 
 @app.route('/super-admin/logout')
 def super_admin_logout():
