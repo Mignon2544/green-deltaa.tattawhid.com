@@ -137,6 +137,8 @@ def generate_pdf(form: dict, qr_link: str) -> io.BytesIO:
 
 # --- STANDARD ADMIN ROUTES ---
 
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -180,14 +182,16 @@ def index():
 
 @app.route('/admin/settings', methods=['GET', 'POST'])
 def admin_settings():
-    if not session.get('logged_in'): return redirect(url_for('login'))
+    if not session.get('logged_in'): 
+        return redirect(url_for('login'))
+        
     message = None
     error = None
+    current_username = session.get('admin_username')
     
     if request.method == 'POST':
         new_username = request.form.get('username')
         new_password = request.form.get('password')
-        current_username = session.get('admin_username')
         
         if new_username and new_password:
             try:
@@ -199,15 +203,25 @@ def admin_settings():
                 conn.close()
                 session['admin_username'] = new_username
                 message = "Your credentials have been updated successfully!"
+                current_username = new_username # Update the local variable
             except psycopg2.IntegrityError:
                 conn.close()
                 error = "That username is already taken. Please choose another."
+            except Exception as e:
+                error = f"Database error: {e}"
                 
+    # Fetch the current details safely
     conn = get_db_connection()
-    c = conn.cursor(cursor_factory=DictCursor)
-    c.execute("SELECT username, password FROM admins WHERE username=%s", (session.get('admin_username'),))
-    current_admin = c.fetchone()
+    # Using a standard cursor instead of DictCursor to prevent Tuple errors
+    c = conn.cursor() 
+    c.execute("SELECT username, password FROM admins WHERE username=%s", (current_username,))
+    current_admin = c.fetchone() # This returns a tuple, e.g., ('admin', 'password123')
     conn.close()
+    
+    # If somehow the admin was deleted while logged in, log them out
+    if not current_admin:
+        session.clear()
+        return redirect(url_for('login'))
     
     return render_template('admin_settings.html', admin=current_admin, message=message, error=error)
 
