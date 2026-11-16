@@ -42,13 +42,18 @@ TEMPLATE_PDF = Path("certificate_template.pdf")
 
 # --- DATABASE INITIALIZATION (PostgreSQL) ---
 def get_db_connection():
-    return psycopg2.connect(DATABASE_URL)
+    # Add sslmode=require to ensure Supabase accepts the connection
+    if "?" in DATABASE_URL:
+        url = DATABASE_URL + "&sslmode=require"
+    else:
+        url = DATABASE_URL + "?sslmode=require"
+    return psycopg2.connect(url)
 
 def init_db():
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        # Create admins table (PostgreSQL syntax)
+        # Create admins table
         c.execute('''CREATE TABLE IF NOT EXISTS admins
                      (id SERIAL PRIMARY KEY, 
                       username VARCHAR(255) UNIQUE NOT NULL, 
