@@ -42,7 +42,7 @@ TEMPLATE_PDF = Path("certificate_template.pdf")
 
 # --- DATABASE INITIALIZATION (PostgreSQL) ---
 def get_db_connection():
-    # Add sslmode=require to ensure Supabase accepts the connection
+    # Force SSL for Supabase
     if "?" in DATABASE_URL:
         url = DATABASE_URL + "&sslmode=require"
     else:
@@ -53,24 +53,25 @@ def init_db():
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        # Create admins table
         c.execute('''CREATE TABLE IF NOT EXISTS admins
                      (id SERIAL PRIMARY KEY, 
                       username VARCHAR(255) UNIQUE NOT NULL, 
                       password VARCHAR(255) NOT NULL,
                       last_ip VARCHAR(255),
                       last_login VARCHAR(255))''')
-        # Check if default admin exists
         c.execute("SELECT COUNT(*) FROM admins")
         if c.fetchone()[0] == 0:
             c.execute("INSERT INTO admins (username, password) VALUES (%s, %s)", ("admin", "password123"))
         conn.commit()
         conn.close()
+        print("✅ Database connected and initialized successfully.")
     except Exception as e:
-        print(f"Database initialization error: {e}")
+        # This will print to the Render Logs so we can see why it failed
+        print(f"❌ DATABASE INITIALIZATION ERROR: {e}")
 
 init_db()
 
+# ... (Keep generate_key, make_qr_image, validate_form, and generate_pdf exactly the same) ...
 def generate_key():
     parts = []
     for _ in range(4):
@@ -145,24 +146,28 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        conn = get_db_connection()
-        c = conn.cursor(cursor_factory=DictCursor)
-        c.execute("SELECT * FROM admins WHERE username=%s AND password=%s", (username, password))
-        user = c.fetchone()
-        
-        if user:
-            client_ip = request.remote_addr
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            c.execute("UPDATE admins SET last_ip=%s, last_login=%s WHERE username=%s", (client_ip, now, username))
-            conn.commit()
-            conn.close()
+        try:
+            conn = get_db_connection()
+            c = conn.cursor(cursor_factory=DictCursor)
+            c.execute("SELECT * FROM admins WHERE username=%s AND password=%s", (username, password))
+            user = c.fetchone()
             
-            session['logged_in'] = True
-            session['admin_username'] = username 
-            return redirect(url_for('index'))
-        else:
-            conn.close()
-            return render_template('login.html', error="Invalid username or password")
+            if user:
+                client_ip = request.remote_addr
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                c.execute("UPDATE admins SET last_ip=%s, last_login=%s WHERE username=%s", (client_ip, now, username))
+                conn.commit()
+                conn.close()
+                
+                session['logged_in'] = True
+                session['admin_username'] = username 
+                return redirect(url_for('index'))
+            else:
+                conn.close()
+                return render_template('login.html', error="Invalid username or password")
+        except Exception as e:
+            # Show the exact database error on the screen
+            return f"<h1>Database Connection Error</h1><p>{e}</p>", 500
             
     if session.get('logged_in'): return redirect(url_for('index'))
     return render_template('login.html')
