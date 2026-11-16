@@ -18,7 +18,7 @@ app = Flask(__name__)
 app.secret_key = "super_secret_admin_key_12345"
 SUPER_ADMIN_EMAIL = "isaacnjuguna518@gmail.com"
 SENDER_EMAIL = "isaacnjuguna518@gmail.com" # Email used to send the recovery key
-SENDER_PASSWORD = "YOUR_EMAIL_APP_PASSWORD" # <--- REPLACE THIS WITH GOOGLE APP PASSWORD
+SENDER_PASSWORD = "Ykwtusadzvvgaxqgr" # <--- REPLACE THIS WITH GOOGLE APP PASSWORD
 
 TEMPLATE_PDF = Path("certificate_template.pdf")
 PDF_SAVE_DIR = Path("generated_pdfs")
