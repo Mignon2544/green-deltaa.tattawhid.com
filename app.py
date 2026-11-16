@@ -20,7 +20,6 @@ TEMPLATE_PDF = Path("certificate_template.pdf")
 PDF_SAVE_DIR = Path("generated_pdfs")
 PDF_SAVE_DIR.mkdir(exist_ok=True)
 
-
 def make_qr_image(data: str) -> bytes:
     """Generates a QR code image in memory."""
     qr = qrcode.QRCode(
@@ -36,7 +35,6 @@ def make_qr_image(data: str) -> bytes:
     img.save(buf, format="PNG")
     return buf.getvalue()
 
-
 def validate_form(form: dict) -> list[str]:
     """Checks that all required fields are filled out."""
     errors = []
@@ -51,7 +49,6 @@ def validate_form(form: dict) -> list[str]:
             errors.append(f"{key} is required")
     return errors
 
-
 def generate_pdf(form: dict, qr_link: str) -> io.BytesIO:
     """Generates the filled PDF and returns it as a BytesIO object."""
     policy_no = form["policy_no"]
@@ -60,19 +57,14 @@ def generate_pdf(form: dict, qr_link: str) -> io.BytesIO:
     replacements = {
         "T2P-2026-BDB2B-0000961": policy_no,
         "T2P-2026-BDB2B-0000962": policy_no, 
-        
         "2026-06-21": form["issue_date"],
         "2026-08-01": form["departure_date"],
         "2027-07-31": form["return_date"],
         "Annual Plan (Return)": form["validity"],
         "EM0358082": form["passport_no"],
         "Outbound, Silver (Covid Plus)": form["plan_type"],
-        
-        # Handling the two lines for Area of Travel
         "Worldwide": form["area_of_travel"].split(" (")[0],
         "(Excluding USA/CAN)": "(" + form["area_of_travel"].split(" (")[1] if " (" in form["area_of_travel"] else "",
-        
-        # Insured Table
         "SAIRAJ HASAN FIROZ": form["insured_name"],
         "MALE": form["gender"],
         "1996-10-04": form["dob"],
@@ -88,34 +80,46 @@ def generate_pdf(form: dict, qr_link: str) -> io.BytesIO:
         hits = page.search_for(old_text)
         for rect in hits:
             if rect.width > 0 and rect.height > 0 and not rect.is_infinite:
-                text_positions.append((rect, new_value))
+                text_positions.append((rect, new_value, old_text))
 
     # STEP 2: Delete the old text (WITHOUT painting white over the background)
-    for rect, _ in text_positions:
+    for rect, _, _ in text_positions:
         page.add_redact_annot(rect) 
     
     page.apply_redactions() 
 
-    # STEP 3: Insert the new text exactly where the old text was
-    for rect, new_value in text_positions:
+    # STEP 3: Insert the new text with smart alignment
+    for rect, new_value, old_text in text_positions:
         if not new_value:
             continue
             
         fontsize = rect.height * 0.75
         if fontsize < 5: 
             fontsize = 5
+            
+        # Dates and Validity look better when centered on mobile
+        date_fields = [
+            "2026-06-21", "2026-08-01", "2027-07-31", 
+            "Annual Plan (Return)", "EM0358082"
+        ]
         
-        baseline_y = rect.y1 - (rect.height * 0.2)
-        
+        if old_text in date_fields:
+            fontsize = fontsize - 0.5 
+            x_pos = rect.x0 + (rect.width / 2) - (fitz.get_text_length(str(new_value), fontname="helv", fontsize=fontsize) / 2)
+            baseline_y = rect.y1 - (rect.height * 0.25)
+        else:
+            x_pos = rect.x0
+            baseline_y = rect.y1 - (rect.height * 0.2)
+
         page.insert_text(
-            (rect.x0, baseline_y),
+            (x_pos, baseline_y),
             str(new_value),
             fontsize=fontsize,
             fontname="helv",
             color=(0, 0, 0),
         )
 
-    # STEP 4: Insert the Top QR Code using your tuned coordinates
+    # STEP 4: Insert the Top QR Code
     qr_bytes = make_qr_image(qr_link)
     page.insert_image(fitz.Rect(276.00, 102.00, 338.00, 164.00), stream=qr_bytes)
 
@@ -146,19 +150,16 @@ def login():
         
     return render_template('login.html')
 
-
 @app.route('/logout')
 def logout():
     session.pop('logged_in', None)
     return redirect(url_for('login'))
-
 
 @app.route("/", methods=["GET"])
 def index():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     return render_template("index.html")
-
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -172,11 +173,10 @@ def generate():
         return "Validation failed:<br>" + "<br>".join(errors), 400
 
     try:
-        # Get the base URL (e.g., https://green-delta.onrender.com)
         base_url = request.host_url.rstrip('/')
         policy_no = form['policy_no']
         
-        # 1. Get current Year and Month
+        # 1. Get current Year and Month for folder structure
         now = datetime.now()
         year_str = now.strftime("%Y")
         month_str = now.strftime("%m")
@@ -185,7 +185,7 @@ def generate():
         sub_dir = PDF_SAVE_DIR / "wp-content" / "uploads" / year_str / month_str
         sub_dir.mkdir(parents=True, exist_ok=True) 
         
-        # 3. Create the dynamic QR link pointing to the live server file
+        # 3. Create the dynamic QR link
         qr_link = f"{base_url}/wp-content/uploads/{year_str}/{month_str}/{policy_no}.pdf"
         
         # 4. Generate the PDF
@@ -207,7 +207,6 @@ def generate():
         """
     except Exception as e:
         return f"An error occurred: {e}", 500
-
 
 @app.route("/wp-content/uploads/<year>/<month>/<filename>")
 def serve_pdf(year, month, filename):
