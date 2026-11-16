@@ -200,11 +200,9 @@ def generate():
         download_link = f"/wp-content/uploads/{year_str}/{month_str}/{policy_no}.pdf"
         return f"""
         <div style="font-family: Arial; text-align: center; margin-top: 50px;">
-            <h2 style="color: green;">✅ PDF Generated Successfully!</h2>
-            <p>Saved to: <br><code>wp-content/uploads/{year_str}/{month_str}/{policy_no}.pdf</code></p>
+            <h2 style="color: green;">Certificate Generated Successfully!</h2>
             <a href="{download_link}" style="padding: 10px 20px; background: #0b7a4b; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">View / Download PDF</a>
             <br><br>
-            <a href="/" style="color: #333;">← Back to Admin Panel</a>
         </div>
         """
     except Exception as e:
