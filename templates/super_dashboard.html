@@ -77,16 +77,16 @@
             <td colspan="8" style="padding: 10px 12px;">
               <div class="row-container">
                 
-                <!-- Status -->
+                <!-- The last item in the Python list is the calculated status -->
                 <div style="width: 70px;">
-                  {% if admin[6] == 'active' %}
+                  {% if admin[-1] == 'active' %}
                     <span class="badge-active">🟢 Active</span>
                   {% else %}
                     <span class="badge-inactive">🔴 Offline</span>
                   {% endif %}
                 </div>
 
-                <!-- Role -->
+                <!-- admin[7] is role, admin[8] is created_by -->
                 <div style="width: 90px;">
                   {% if admin[7] == 'sub_admin' %}
                     <span class="badge-sub">Creator</span>
@@ -95,20 +95,17 @@
                   {% endif %}
                 </div>
 
-                <!-- Created By -->
                 <div style="width: 100px; font-size: 12px; color: #555;">
                   {{ admin[8] or 'System' }}
                 </div>
 
-                <!-- Edit Form -->
                 <form method="POST" action="/super-admin/edit-admin/{{ admin[0] }}" class="edit-form">
                   <input type="text" name="username" value="{{ admin[1] }}" required class="input-username">
                   <input type="text" name="password" value="{{ admin[2] }}" required class="input-password">
                   
-                  <span class="data-text">{{ admin[3] or 'Never' }}</span>
+                  <span class="data-text">{{ admin[4] or 'Never' }}</span>
                   <span class="device-text" title="{{ admin[5] }}">{{ admin[5] or 'Unknown' }}</span>
                   
-                  <!-- Toggle Permission Button -->
                   <button type="submit" formaction="/super-admin/toggle-role/{{ admin[0] }}" class="btn {% if admin[7] == 'sub_admin' %}btn-toggle-revoke{% else %}btn-toggle-grant{% endif %}" style="margin-left: 10px;">
                     {% if admin[7] == 'sub_admin' %}Revoke Rights{% else %}Grant Rights{% endif %}
                   </button>
@@ -116,7 +113,6 @@
                   <button type="submit" class="btn btn-save">Save</button>
                 </form>
                 
-                <!-- Delete Button -->
                 <form method="POST" action="/super-admin/delete-admin/{{ admin[0] }}" style="margin: 0;" onsubmit="return confirm('Delete this admin?');">
                   <button type="submit" class="btn btn-delete">🗑️</button>
                 </form>
