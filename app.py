@@ -42,7 +42,6 @@ TEMPLATE_PDF = Path("certificate_template.pdf")
 
 # --- DATABASE INITIALIZATION (PostgreSQL) ---
 def get_db_connection():
-    # Force SSL for Supabase
     if "?" in DATABASE_URL:
         url = DATABASE_URL + "&sslmode=require"
     else:
@@ -53,7 +52,6 @@ def init_db():
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        # Create admins table if it doesn't exist
         c.execute('''CREATE TABLE IF NOT EXISTS admins
                      (id SERIAL PRIMARY KEY, 
                       username VARCHAR(255) UNIQUE NOT NULL, 
@@ -61,11 +59,7 @@ def init_db():
                       last_ip VARCHAR(255),
                       last_login VARCHAR(255),
                       device TEXT)''')
-        
-        # SAFETY CHECK: If the table already exists from before, this adds the new column without deleting data
         c.execute("ALTER TABLE admins ADD COLUMN IF NOT EXISTS device TEXT")
-        
-        # Check if default admin exists
         c.execute("SELECT COUNT(*) FROM admins")
         if c.fetchone()[0] == 0:
             c.execute("INSERT INTO admins (username, password) VALUES (%s, %s)", ("admin", "password123"))
@@ -77,7 +71,6 @@ def init_db():
 
 init_db()
 
-# ... (Keep generate_key, make_qr_image, validate_form, and generate_pdf exactly the same) ...
 def generate_key():
     parts = []
     for _ in range(4):
@@ -98,7 +91,8 @@ def validate_form(form: dict) -> list[str]:
     errors = []
     required = ["no", "insured_name", "gender", "dob", "nationality", "policy_no", "area_of_travel", "departure_date", "validity", "issue_date", "plan_type", "return_date", "passport_no"]
     for key in required:
-        if not form.get(key, "").strip(): errors.append(f"{key} is required")
+        if not form.get(key, "").strip(): 
+            errors.append(f"{key} is required")
     return errors
 
 def generate_pdf(form: dict, qr_link: str) -> io.BytesIO:
@@ -121,12 +115,15 @@ def generate_pdf(form: dict, qr_link: str) -> io.BytesIO:
         for rect in hits:
             if rect.width > 0 and rect.height > 0 and not rect.is_infinite:
                 text_positions.append((rect, new_value, old_text))
-    for rect, _, _ in text_positions: page.add_redact_annot(rect) 
+    for rect, _, _ in text_positions: 
+        page.add_redact_annot(rect) 
     page.apply_redactions() 
     for rect, new_value, old_text in text_positions:
-        if not new_value: continue
+        if not new_value: 
+            continue
         fontsize = rect.height * 0.75
-        if fontsize < 5: fontsize = 5
+        if fontsize < 5: 
+            fontsize = 5
         date_fields = ["2026-06-21", "2026-08-01", "2027-07-31", "Annual Plan (Return)", "EM0358082"]
         if old_text in date_fields:
             fontsize = fontsize - 0.5 
@@ -159,8 +156,9 @@ def login():
             user = c.fetchone()
             
             if user:
-                # Capture IP and Device
-                client_ip = request.remote_addr or "Unknown IP"
+                client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+                if client_ip and ',' in client_ip:
+                    client_ip = client_ip.split(',')[0].strip()
                 user_agent = request.headers.get('User-Agent', 'Unknown Device')
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
@@ -190,7 +188,8 @@ def logout():
 
 @app.route("/")
 def index():
-    if not session.get('logged_in'): return redirect(url_for('login'))
+    if not session.get('logged_in'): 
+        return redirect(url_for('login'))
     return render_template("index.html")
 
 @app.route('/admin/settings', methods=['GET', 'POST'])
@@ -306,6 +305,9 @@ def super_admin_forgot():
             "html": f"<p>Your new 16-digit Super Admin Key is:</p><h2>{new_key}</h2><p>Use this to log in.</p>"
         })
         return render_template('super_login.html', message=f"A new key has been sent to {SUPER_ADMIN_EMAIL}!")
+    except Exception as e: 
+        return render_template('super_login.html', error=f"Failed to send email: {e}")
+
 @app.route('/super-admin/dashboard', methods=['GET'])
 def super_admin_dashboard():
     if not session.get('super_admin'): 
