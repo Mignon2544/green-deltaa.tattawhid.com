@@ -5,42 +5,32 @@
   <title>Super Admin Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
+    /* (Keep all your existing CSS here exactly the same) */
     body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 30px; }
     .card { max-width: 1300px; margin: auto; background: white; padding: 28px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.08); }
     h1 { margin-top: 0; font-size: 24px; color: #333; border-bottom: 2px solid #e53e3e; padding-bottom: 10px; margin-bottom: 20px;}
-    
     .flash-success { background: #c6f6d5; color: #22543d; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-weight: bold; }
     .flash-error { background: #fed7d7; color: #742a2a; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-weight: bold; }
-
     .table-container { width: 100%; overflow-x: auto; margin-bottom: 30px; }
     table { width: 100%; border-collapse: collapse; min-width: 1100px; }
     th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; vertical-align: middle; }
     th { background: #f8f9fa; font-weight: bold; color: #555; white-space: nowrap; }
-    
     .row-container { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; }
     .edit-form { display: flex; align-items: center; gap: 10px; flex-grow: 1; margin: 0; }
-    
     input { padding: 8px; border: 1px solid #ccd2d8; border-radius: 4px; font-size: 13px; box-sizing: border-box; }
     .input-username { width: 110px; }
     .input-password { width: 110px; }
-    
     .data-text { font-size: 12px; color: #666; width: 90px; }
     .device-text { font-size: 11px; color: #666; width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
     .badge-active { background: #c6f6d5; color: #22543d; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
     .badge-inactive { background: #fed7d7; color: #742a2a; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
-    .badge-super { background: #e9d8fd; color: #44337a; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
-    .badge-sub { background: #bee3f8; color: #2a4365; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
-
     .btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; transition: 0.2s; }
     .btn-save { background: #0b7a4b; margin-left: auto; }
     .btn-delete { background: #e53e3e; padding: 8px 10px; }
     .btn-toggle-grant { background: #48bb78; }
     .btn-toggle-revoke { background: #ecc94b; color: black; }
-    
     .btn-add { background: #007bff; width: 100%; padding: 12px; font-size: 15px; margin-top: 10px; }
     .btn-logout { background: #4a5568; width: 100%; padding: 12px; font-size: 15px; margin-top: 10px; text-decoration: none; display: block; text-align: center; box-sizing: border-box; border-radius: 4px; font-weight: bold; color: white; }
-
     .add-admin-box { background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 30px; }
     .add-admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
   </style>
@@ -77,7 +67,6 @@
             <td colspan="8" style="padding: 10px 12px;">
               <div class="row-container">
                 
-                <!-- The last item in the Python list is the calculated status -->
                 <div style="width: 70px;">
                   {% if admin[-1] == 'active' %}
                     <span class="badge-active">🟢 Active</span>
@@ -86,12 +75,11 @@
                   {% endif %}
                 </div>
 
-                <!-- admin[7] is role, admin[8] is created_by -->
                 <div style="width: 90px;">
                   {% if admin[7] == 'sub_admin' %}
-                    <span class="badge-sub">Creator</span>
+                    <span class="badge-sub" style="background: #bee3f8; color: #2a4365; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">Creator</span>
                   {% else %}
-                    <span class="badge-super">Standard</span>
+                    <span class="badge-super" style="background: #e9d8fd; color: #44337a; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">Standard</span>
                   {% endif %}
                 </div>
 
@@ -106,8 +94,17 @@
                   <span class="data-text">{{ admin[4] or 'Never' }}</span>
                   <span class="device-text" title="{{ admin[5] }}">{{ admin[5] or 'Unknown' }}</span>
                   
-                  <button type="submit" formaction="/super-admin/toggle-role/{{ admin[0] }}" class="btn {% if admin[7] == 'sub_admin' %}btn-toggle-revoke{% else %}btn-toggle-grant{% endif %}" style="margin-left: 10px;">
-                    {% if admin[7] == 'sub_admin' %}Revoke Rights{% else %}Grant Rights{% endif %}
+                  <!-- The Button with the JavaScript ID -->
+                  <button type="submit" formaction="/super-admin/toggle-role/{{ admin[0] }}" 
+                          id="btn-{{ admin[0] }}"
+                          class="btn {% if admin[7] == 'sub_admin' %}btn-toggle-revoke{% else %}btn-toggle-grant{% endif %}" 
+                          style="margin-left: 10px; width: 130px;"
+                          onclick="toggleButtonState('{{ admin[0] }}')">
+                    {% if admin[7] == 'sub_admin' %}
+                      ✅ Rights Granted
+                    {% else %}
+                      Grant Rights
+                    {% endif %}
                   </button>
 
                   <button type="submit" class="btn btn-save">Save</button>
@@ -138,5 +135,44 @@
 
     <a href="/super-admin/logout" class="btn-logout">Logout Super Admin</a>
   </div>
+
+  <!-- JAVASCRIPT FOR BUTTON STATE -->
+  <script>
+    // 1. On page load, check local storage for any granted rights
+    document.addEventListener("DOMContentLoaded", function() {
+      // Find all toggle buttons on the page
+      const toggleButtons = document.querySelectorAll('[id^="btn-"]');
+      
+      toggleButtons.forEach(btn => {
+        const adminId = btn.id.replace('btn-', '');
+        const isGranted = localStorage.getItem('granted_' + adminId);
+        
+        // If local storage says it was granted, update the button
+        if (isGranted === 'true') {
+          btn.innerText = "✅ Rights Granted";
+          btn.style.background = "#48bb78"; // Green
+          btn.style.color = "white";
+        }
+      });
+    });
+
+    // 2. When a button is clicked, toggle its state and save it
+    function toggleButtonState(adminId) {
+      const btn = document.getElementById('btn-' + adminId);
+      let isGranted = localStorage.getItem('granted_' + adminId) === 'true';
+
+      if (isGranted) {
+        // Revoke it
+        btn.innerText = "Grant Rights";
+        btn.style.background = "#48bb78"; // Green
+        localStorage.setItem('granted_' + adminId, 'false');
+      } else {
+        // Grant it
+        btn.innerText = "✅ Rights Granted";
+        btn.style.background = "#48bb78"; // Green
+        localStorage.setItem('granted_' + adminId, 'true');
+      }
+    }
+  </script>
 </body>
 </html>
