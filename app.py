@@ -241,10 +241,14 @@ def admin_settings():
 def generate():
     if not session.get('logged_in'): return "Unauthorized", 403
     form = request.form.to_dict()
+    
+    # Force uppercase for Name and Passport
     form['insured_name'] = form.get('insured_name', '').upper()
     form['passport_no'] = form.get('passport_no', '').upper()
+
     errors = validate_form(form)
     if errors: return "Validation failed:<br>" + "<br>".join(errors), 400
+    
     try:
         policy_no = form['policy_no']
         now = datetime.now()
@@ -258,12 +262,12 @@ def generate():
         s3_client.put_object(Bucket=R2_BUCKET_NAME, Key=object_key, Body=pdf_bytes.getvalue(), ContentType='application/pdf')
         
         return f"""<div style="font-family: Arial; text-align: center; margin-top: 50px;">
-            <h2 style="color: green;">Certificate Generated </h2>
+            <h2 style="color: green;">✅ PDF Generated & Uploaded!</h2>
             <a href="{qr_link}" target="_blank" style="padding: 10px 20px; background: #0b7a4b; color: white; text-decoration: none; border-radius: 5px;">View / Download PDF</a>
-            <br><br><a href="/" style="color: #333;">← Back to Admin Panel</a></div>"""
-    except Exception as e: return f"An error occurred: {e}", 500
+            <br><br><a href="https://green-deltainsurance.com/" style="color: #333;">← Back to Admin Panel</a></div>"""
+    except Exception as e: 
+        return f"An error occurred: {e}", 500
 
-# 👇 NEW ROUTE TO SERVE PDFs VIA YOUR CUSTOM DOMAIN 👇
 @app.route("/wp-content/uploads/<year>/<month>/<filename>")
 def serve_pdf(year, month, filename):
     object_key = f"wp-content/uploads/{year}/{month}/{filename}"
@@ -277,7 +281,6 @@ def serve_pdf(year, month, filename):
         )
     except Exception as e:
         return f"PDF not found or error: {e}", 404
-# 👆 END OF NEW ROUTE 👆
 
 @app.route("/generated")
 def generated_files():
@@ -317,7 +320,7 @@ def super_admin_login():
             return render_template('super_login.html', error="Invalid or expired 16-digit key.")
     return render_template('super_login.html')
 
-('/super-admin/forgot', methods=['POST'])
+@app.route('/super-admin/forgot', methods=['POST'])
 def super_admin_forgot():
     new_key = generate_key()
     session['super_key'] = new_key 
@@ -346,22 +349,19 @@ def super_admin_dashboard():
         now = datetime.now()
         
         for admin in admins_raw:
-            admin_list = list(admin) # Convert tuple to list so we can append
-            
-            # admin[4] is the last_login string (e.g. "2026-11-18 10:30:00")
+            admin_list = list(admin)
             last_login_str = admin_list[4]
             status = "inactive"
             
             if last_login_str:
                 try:
                     last_login_time = datetime.strptime(last_login_str, "%Y-%m-%d %H:%M:%S")
-                    # If the difference is less than 15 minutes, they are active
                     if (now - last_login_time).total_seconds() < 900:
                         status = "active"
                 except ValueError:
-                    pass # Handle parsing errors safely
+                    pass
             
-            admin_list.append(status) # admin[6] will now be the status
+            admin_list.append(status) # admin[6] is status
             admins.append(admin_list)
             
     except Exception as e:
