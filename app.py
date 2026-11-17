@@ -150,6 +150,22 @@ def generate_pdf(form: dict, qr_link: str) -> io.BytesIO:
     return output
 
 # --- ROUTES ---
+@app.route('/super-admin/set-permission/<int:id>/<action>', methods=['GET'])
+def set_permission(id, action):
+    if not session.get('super_admin'): 
+        return redirect(url_for('super_admin_login'))
+    
+    new_role = 'sub_admin' if action == 'grant' else 'admin'
+    created_by = 'Super Admin' if action == 'grant' else 'System'
+    
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("UPDATE admins SET role=%s, created_by=%s WHERE id=%s", (new_role, created_by, id))
+    conn.commit()
+    conn.close()
+    
+    flash(f"Permissions updated successfully.", "success")
+    return redirect(url_for('super_admin_dashboard'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
