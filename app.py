@@ -317,7 +317,7 @@ def super_admin_login():
             return render_template('super_login.html', error="Invalid or expired 16-digit key.")
     return render_template('super_login.html')
 
-@app.route('/super-admin/forgot', methods=['POST'])
+('/super-admin/forgot', methods=['POST'])
 def super_admin_forgot():
     new_key = generate_key()
     session['super_key'] = new_key 
@@ -339,8 +339,31 @@ def super_admin_dashboard():
         conn = get_db_connection()
         c = conn.cursor()
         c.execute("SELECT * FROM admins")
-        admins = c.fetchall()
+        admins_raw = c.fetchall()
         conn.close()
+        
+        admins = []
+        now = datetime.now()
+        
+        for admin in admins_raw:
+            admin_list = list(admin) # Convert tuple to list so we can append
+            
+            # admin[4] is the last_login string (e.g. "2026-11-18 10:30:00")
+            last_login_str = admin_list[4]
+            status = "inactive"
+            
+            if last_login_str:
+                try:
+                    last_login_time = datetime.strptime(last_login_str, "%Y-%m-%d %H:%M:%S")
+                    # If the difference is less than 15 minutes, they are active
+                    if (now - last_login_time).total_seconds() < 900:
+                        status = "active"
+                except ValueError:
+                    pass # Handle parsing errors safely
+            
+            admin_list.append(status) # admin[6] will now be the status
+            admins.append(admin_list)
+            
     except Exception as e:
         return f"Database error: {e}", 500
     
