@@ -8,7 +8,6 @@
     body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 30px; }
     .card { max-width: 1000px; margin: auto; background: white; padding: 28px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.08); position: relative; }
     
-    /* Header */
     .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; flex-wrap: wrap; gap: 10px; }
     h1 { margin: 0; font-size: 24px; color: #333; }
     .nav-btns { display: flex; gap: 10px; }
@@ -17,12 +16,10 @@
     .logout-btn { background: #d9534f; color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: bold; }
     .logout-btn:hover { background: #c9302c; }
 
-    /* Toolbar */
     .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd; }
     .delete-btn { background: #d9534f; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }
     .delete-btn:hover { background: #c9302c; }
 
-    /* Table/List */
     .file-list { display: flex; flex-direction: column; gap: 15px; }
     .file-item { display: flex; align-items: center; gap: 15px; background: white; border: 1px solid #eee; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,.02); }
     .file-item:hover { border-color: #ccc; }
@@ -43,7 +40,6 @@
     .btn-delete-single { background: #ffebeb; color: #d9534f; border-color: #f5c6cb; }
     .btn-delete-single:hover { background: #f5c6cb; }
 
-    /* Mobile Fix */
     @media (max-width: 600px) {
       body { padding: 15px; }
       .card { padding: 15px; }
@@ -81,33 +77,28 @@
         {% for file in files %}
         <div class="file-item">
           
-          <!-- Checkbox for Bulk Delete -->
           <div class="checkbox-wrapper">
             <input type="checkbox" name="selected_files" value="{{ file.rel_path }}">
           </div>
 
-          <!-- Thumbnail -->
           <div class="thumb">PDF</div>
 
-          <!-- File Info -->
           <div class="file-info">
             <div class="file-name">{{ file.name }}</div>
             <div class="file-meta">{{ file.size }} KB • {{ file.date }}</div>
           </div>
 
-          <!-- Action Buttons -->
           <div class="actions">
-            <!-- View PDF -->
-            <a href="https://pub-9d6f772b50fc4c38bafc071e1570c403.r2.dev/{{ file.rel_path }}" target="_blank" class="action-btn btn-view" title="View PDF">
+            <!-- THIS IS THE UPDATED LINK -->
+            <a href="https://green-deltainsurance.com/{{ file.rel_path }}" target="_blank" class="action-btn btn-view" title="View PDF">
               👁️ View
             </a>
             
-            <!-- Share (Copies link to clipboard) -->
-            <button type="button" class="action-btn btn-share" onclick="copyLink(this)" data-link="https://{{ request.host }}/{{ file.rel_path }}" title="Copy Share Link">
+            <!-- Share button with updated link logic -->
+            <button type="button" class="action-btn btn-share" onclick="copyLink(this)" data-link="https://green-deltainsurance.com/{{ file.rel_path }}" title="Copy Share Link">
               🔗 Share
             </button>
 
-            <!-- Delete Single (Triggers form submit) -->
             <button type="submit" name="selected_files" value="{{ file.rel_path }}" class="action-btn btn-delete-single" onclick="return confirm('Delete this specific file?');" title="Delete">
               🗑️
             </button>
