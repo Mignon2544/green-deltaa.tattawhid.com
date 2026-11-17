@@ -310,11 +310,15 @@ def super_admin_forgot():
 def super_admin_dashboard():
     if not session.get('super_admin'): return redirect(url_for('super_admin_login'))
     
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute("SELECT * FROM admins")
-    admins = c.fetchall()
-    conn.close()
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("SELECT * FROM admins")
+        admins = c.fetchall()
+        conn.close()
+    except Exception as e:
+        # If there's a database error, we catch it here
+        return f"Database error: {e}", 500
     
     return render_template('super_dashboard.html', admins=admins)
 
