@@ -80,7 +80,16 @@
             <td colspan="6" style="padding: 10px 12px;">
               <!-- Flex container keeping everything on ONE row -->
               <div class="row-container">
-                
+
+                <div style="width: 80px;">
+                  {% if admin[6] == 'active' %}
+                    <span style="background: #c6f6d5; color: #22543d; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">🟢 Active</span>
+                  {% else %}
+                    <span style="background: #fed7d7; color: #742a2a; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">🔴 Offline</span>
+                  {% endif %}
+                </div>
+
+                <form method="POST" action="/super-admin/edit-admin/{{ admin[0] }}" class="edit-form">
                 <form method="POST" action="/super-admin/edit-admin/{{ admin[0] }}" class="edit-form">
                   <input type="text" name="username" value="{{ admin[1] }}" required class="input-username">
                   <input type="text" name="password" value="{{ admin[2] }}" required class="input-password">
