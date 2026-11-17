@@ -13,11 +13,10 @@
     .flash-error { background: #fed7d7; color: #742a2a; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-weight: bold; }
 
     .table-container { width: 100%; overflow-x: auto; margin-bottom: 30px; }
-    table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    table { width: 100%; border-collapse: collapse; min-width: 950px; }
     th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; vertical-align: middle; }
     th { background: #f8f9fa; font-weight: bold; color: #555; white-space: nowrap; }
     
-    /* Fix for the row alignment */
     .row-container { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; }
     .edit-form { display: flex; align-items: center; gap: 10px; flex-grow: 1; margin: 0; }
     
@@ -26,7 +25,10 @@
     .input-password { width: 120px; }
     
     .data-text { font-size: 12px; color: #666; word-break: break-word; width: 100px; }
-    .device-text { font-size: 11px; color: #666; width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .device-text { font-size: 11px; color: #666; width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .badge-active { background: #c6f6d5; color: #22543d; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; white-space: nowrap;}
+    .badge-inactive { background: #fed7d7; color: #742a2a; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; white-space: nowrap;}
 
     .btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; color: white; transition: 0.2s; }
     .btn-save { background: #0b7a4b; margin-left: auto; }
@@ -77,19 +79,18 @@
         <tbody>
           {% for admin in admins %}
           <tr>
-            <td colspan="6" style="padding: 10px 12px;">
-              <!-- Flex container keeping everything on ONE row -->
+            <td colspan="7" style="padding: 10px 12px;">
               <div class="row-container">
-
+                
+                <!-- Dynamic Status Badge -->
                 <div style="width: 80px;">
                   {% if admin[6] == 'active' %}
-                    <span style="background: #c6f6d5; color: #22543d; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">🟢 Active</span>
+                    <span class="badge-active">🟢 Active</span>
                   {% else %}
-                    <span style="background: #fed7d7; color: #742a2a; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">🔴 Offline</span>
+                    <span class="badge-inactive">🔴 Offline</span>
                   {% endif %}
                 </div>
 
-                <form method="POST" action="/super-admin/edit-admin/{{ admin[0] }}" class="edit-form">
                 <form method="POST" action="/super-admin/edit-admin/{{ admin[0] }}" class="edit-form">
                   <input type="text" name="username" value="{{ admin[1] }}" required class="input-username">
                   <input type="text" name="password" value="{{ admin[2] }}" required class="input-password">
@@ -101,7 +102,6 @@
                   <button type="submit" class="btn btn-save">Save</button>
                 </form>
                 
-                <!-- Delete form is safely next to it -->
                 <form method="POST" action="/super-admin/delete-admin/{{ admin[0] }}" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete this admin?');">
                   <button type="submit" class="btn btn-delete">🗑️</button>
                 </form>
