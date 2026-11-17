@@ -164,7 +164,7 @@ def set_permission(id, action):
     conn.commit()
     conn.close()
     
-    flash(f"Permissions updated successfully.", "success")
+    flash("Permissions updated successfully.", "success")
     return redirect(url_for('super_admin_dashboard'))
 
 @app.route('/login', methods=['GET', 'POST'])
