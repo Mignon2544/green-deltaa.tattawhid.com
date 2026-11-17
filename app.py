@@ -308,7 +308,8 @@ def super_admin_forgot():
         return render_template('super_login.html', message=f"A new key has been sent to {SUPER_ADMIN_EMAIL}!")
 @app.route('/super-admin/dashboard', methods=['GET'])
 def super_admin_dashboard():
-    if not session.get('super_admin'): return redirect(url_for('super_admin_login'))
+    if not session.get('super_admin'): 
+        return redirect(url_for('super_admin_login'))
     
     try:
         conn = get_db_connection()
@@ -317,7 +318,6 @@ def super_admin_dashboard():
         admins = c.fetchall()
         conn.close()
     except Exception as e:
-        # If there's a database error, we catch it here
         return f"Database error: {e}", 500
     
     return render_template('super_dashboard.html', admins=admins)
