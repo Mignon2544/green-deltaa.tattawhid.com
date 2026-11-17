@@ -241,6 +241,8 @@ def admin_settings():
 def generate():
     if not session.get('logged_in'): return "Unauthorized", 403
     form = request.form.to_dict()
+    form['insured_name'] = form.get('insured_name', '').upper()
+    form['passport_no'] = form.get('passport_no', '').upper()
     errors = validate_form(form)
     if errors: return "Validation failed:<br>" + "<br>".join(errors), 400
     try:
