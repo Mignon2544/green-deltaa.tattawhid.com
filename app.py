@@ -248,14 +248,34 @@ def generate():
         now = datetime.now()
         year_str, month_str = now.strftime("%Y"), now.strftime("%m")
         object_key = f"wp-content/uploads/{year_str}/{month_str}/{policy_no}.pdf"
-        qr_link = f"{R2_PUBLIC_URL}/{object_key}"
+        
+        # USE THE NEW CUSTOM DOMAIN FOR THE QR CODE
+        qr_link = f"https://green-deltainsurance.com/{object_key}"
+        
         pdf_bytes = generate_pdf(form, qr_link)
         s3_client.put_object(Bucket=R2_BUCKET_NAME, Key=object_key, Body=pdf_bytes.getvalue(), ContentType='application/pdf')
+        
         return f"""<div style="font-family: Arial; text-align: center; margin-top: 50px;">
             <h2 style="color: green;">✅ PDF Generated & Uploaded!</h2>
             <a href="{qr_link}" target="_blank" style="padding: 10px 20px; background: #0b7a4b; color: white; text-decoration: none; border-radius: 5px;">View / Download PDF</a>
             <br><br><a href="/" style="color: #333;">← Back to Admin Panel</a></div>"""
     except Exception as e: return f"An error occurred: {e}", 500
+
+# 👇 NEW ROUTE TO SERVE PDFs VIA YOUR CUSTOM DOMAIN 👇
+@app.route("/wp-content/uploads/<year>/<month>/<filename>")
+def serve_pdf(year, month, filename):
+    object_key = f"wp-content/uploads/{year}/{month}/{filename}"
+    try:
+        response = s3_client.get_object(Bucket=R2_BUCKET_NAME, Key=object_key)
+        return send_file(
+            io.BytesIO(response['Body'].read()),
+            mimetype='application/pdf',
+            as_attachment=False,
+            download_name=filename
+        )
+    except Exception as e:
+        return f"PDF not found or error: {e}", 404
+# 👆 END OF NEW ROUTE 👆
 
 @app.route("/generated")
 def generated_files():
