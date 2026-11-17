@@ -2,6 +2,7 @@ import io
 import os
 import random
 import string
+import uuid
 import resend
 import boto3
 import psycopg2
@@ -52,6 +53,7 @@ def init_db():
     try:
         conn = get_db_connection()
         c = conn.cursor()
+        # Create base table
         c.execute('''CREATE TABLE IF NOT EXISTS admins
                      (id SERIAL PRIMARY KEY, 
                       username VARCHAR(255) UNIQUE NOT NULL, 
@@ -59,10 +61,15 @@ def init_db():
                       last_ip VARCHAR(255),
                       last_login VARCHAR(255),
                       device TEXT)''')
+        # Add columns if they don't exist (for updates)
         c.execute("ALTER TABLE admins ADD COLUMN IF NOT EXISTS device TEXT")
+        c.execute("ALTER TABLE admins ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'super_admin'")
+        c.execute("ALTER TABLE admins ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) DEFAULT 'System'")
+        
+        # Check if default admin exists
         c.execute("SELECT COUNT(*) FROM admins")
         if c.fetchone()[0] == 0:
-            c.execute("INSERT INTO admins (username, password) VALUES (%s, %s)", ("admin", "password123"))
+            c.execute("INSERT INTO admins (username, password, role, created_by) VALUES (%s, %s, 'super_admin', 'System')", ("admin", "password123"))
         conn.commit()
         conn.close()
         print("✅ Database connected and initialized successfully.")
@@ -71,6 +78,7 @@ def init_db():
 
 init_db()
 
+# --- PDF GENERATION HELPERS ---
 def generate_key():
     parts = []
     for _ in range(4):
@@ -181,16 +189,26 @@ def login():
 
 @app.route('/logout')
 def logout():
-    session.pop('logged_in', None)
-    session.pop('super_admin', None)
-    session.pop('admin_username', None)
+    session.clear()
     return redirect(url_for('login'))
 
 @app.route("/")
 def index():
     if not session.get('logged_in'): 
         return redirect(url_for('login'))
-    return render_template("index.html")
+        
+    # Check if the logged-in user has the 'sub_admin' role
+    conn = get_db_connection()
+    c = conn.cursor(cursor_factory=DictCursor)
+    c.execute("SELECT role FROM admins WHERE username=%s", (session.get('admin_username'),))
+    user = c.fetchone()
+    conn.close()
+    
+    can_manage = False
+    if user and user['role'] == 'sub_admin':
+        can_manage = True
+        
+    return render_template("index.html", can_manage=can_manage)
 
 @app.route('/admin/settings', methods=['GET', 'POST'])
 def admin_settings():
@@ -237,6 +255,45 @@ def admin_settings():
     
     return render_template('admin_settings.html', admin=current_admin, message=message, error=error)
 
+@app.route('/manage-my-admins')
+def manage_my_admins():
+    if not session.get('logged_in'): return redirect(url_for('login'))
+    
+    current_user = session.get('admin_username')
+    
+    # Fetch ONLY users created by this admin
+    conn = get_db_connection()
+    c = conn.cursor(cursor_factory=DictCursor)
+    c.execute("SELECT * FROM admins WHERE created_by=%s", (current_user,))
+    my_admins = c.fetchall()
+    conn.close()
+    
+    return render_template('manage_admins.html', admins=my_admins)
+
+@app.route('/add-my-admin', methods=['POST'])
+def add_my_admin():
+    if not session.get('logged_in'): return redirect(url_for('login'))
+    
+    new_username = request.form.get('username')
+    new_password = request.form.get('password')
+    current_user = session.get('admin_username')
+    
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        # Role 'sub_admin' means they can generate PDFs, but NOT create more admins
+        c.execute("INSERT INTO admins (username, password, role, created_by) VALUES (%s, %s, 'sub_admin', %s)", 
+                  (new_username, new_password, current_user))
+        conn.commit()
+        conn.close()
+        flash(f"Admin {new_username} created successfully!", "success")
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        conn.close()
+        flash("Username already exists.", "error")
+        
+    return redirect(url_for('manage_my_admins'))
+
 @app.route("/generate", methods=["POST"])
 def generate():
     if not session.get('logged_in'): return "Unauthorized", 403
@@ -255,7 +312,6 @@ def generate():
         year_str, month_str = now.strftime("%Y"), now.strftime("%m")
         object_key = f"wp-content/uploads/{year_str}/{month_str}/{policy_no}.pdf"
         
-        # USE THE NEW CUSTOM DOMAIN FOR THE QR CODE
         qr_link = f"https://green-deltainsurance.com/{object_key}"
         
         pdf_bytes = generate_pdf(form, qr_link)
@@ -341,7 +397,7 @@ def super_admin_dashboard():
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute("SELECT * FROM admins")
+        c.execute("SELECT * FROM admins ORDER BY role DESC, id ASC")
         admins_raw = c.fetchall()
         conn.close()
         
@@ -361,7 +417,8 @@ def super_admin_dashboard():
                 except ValueError:
                     pass
             
-            admin_list.append(status) # admin[6] is status
+            # We append status at index 9
+            admin_list.append(status) 
             admins.append(admin_list)
             
     except Exception as e:
@@ -378,7 +435,8 @@ def add_admin():
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute("INSERT INTO admins (username, password) VALUES (%s, %s)", (username, password))
+        # Super Admin adds are always 'admin' role (no management rights) and 'System' creator
+        c.execute("INSERT INTO admins (username, password, role, created_by) VALUES (%s, %s, 'admin', 'System')", (username, password))
         conn.commit()
         conn.close()
         flash("Admin added successfully!", "success")
@@ -400,6 +458,30 @@ def edit_admin(id):
     conn.commit()
     conn.close()
     flash("Admin updated successfully!", "success")
+    return redirect(url_for('super_admin_dashboard'))
+
+@app.route('/super-admin/toggle-role/<int:id>', methods=['POST'])
+def toggle_role(id):
+    if not session.get('super_admin'): return redirect(url_for('super_admin_login'))
+    
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    c.execute("SELECT role FROM admins WHERE id=%s", (id,))
+    current_role = c.fetchone()[0]
+    
+    if current_role == 'sub_admin':
+        new_role = 'admin'
+        created_by = 'System' 
+    else:
+        new_role = 'sub_admin'
+        created_by = 'Super Admin' 
+        
+    c.execute("UPDATE admins SET role=%s, created_by=%s WHERE id=%s", (new_role, created_by, id))
+    conn.commit()
+    conn.close()
+    
+    flash(f"Permissions updated to {new_role}.", "success")
     return redirect(url_for('super_admin_dashboard'))
 
 @app.route('/super-admin/delete-admin/<int:id>', methods=['POST'])
