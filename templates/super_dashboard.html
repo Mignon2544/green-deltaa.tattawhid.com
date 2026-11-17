@@ -85,6 +85,7 @@
             <td colspan="8" style="padding: 10px 12px;">
               <div class="row-container">
                 
+                <!-- Status -->
                 <div style="width: 70px;">
                   {% if admin[-1] == 'active' %}
                     <span class="badge-active">🟢 Active</span>
@@ -93,20 +94,19 @@
                   {% endif %}
                 </div>
 
-                <!-- 👇 TOGGLE SWITCH REPLACING THE OLD BUTTON 👇 -->
+                <!-- TOGGLE SWITCH -->
                 <div class="switch-container">
                   <label class="switch">
-                    <!-- The checkbox triggers the route change automatically -->
                     <input type="checkbox" 
+                           id="toggle-{{ admin[0] }}"
                            {% if admin[7] == 'sub_admin' %}checked{% endif %}
                            onchange="window.location.href='/super-admin/set-permission/{{ admin[0] }}/' + (this.checked ? 'grant' : 'revoke');">
                     <span class="slider"></span>
                   </label>
-                  <span class="switch-label">
+                  <span class="switch-label" id="label-{{ admin[0] }}">
                     {% if admin[7] == 'sub_admin' %}On{% else %}Off{% endif %}
                   </span>
                 </div>
-                <!-- 👆 END TOGGLE SWITCH 👆 -->
 
                 <div style="width: 100px; font-size: 12px; color: #555;">
                   {{ admin[8] or 'System' }}
