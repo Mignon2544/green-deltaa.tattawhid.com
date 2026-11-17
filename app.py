@@ -53,26 +53,26 @@ def init_db():
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        # Create base table
         c.execute('''CREATE TABLE IF NOT EXISTS admins
                      (id SERIAL PRIMARY KEY, 
                       username VARCHAR(255) UNIQUE NOT NULL, 
                       password VARCHAR(255) NOT NULL,
                       last_ip VARCHAR(255),
                       last_login VARCHAR(255),
-                      device TEXT)''')
-        # Add columns if they don't exist (for updates)
+                      device TEXT,
+                      role VARCHAR(50) DEFAULT 'admin',
+                      created_by VARCHAR(255) DEFAULT 'System')''')
+        
+        # These ALTER commands force the columns to exist even if the table was already created
         c.execute("ALTER TABLE admins ADD COLUMN IF NOT EXISTS device TEXT")
-        c.execute("ALTER TABLE admins ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'super_admin'")
+        c.execute("ALTER TABLE admins ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'admin'")
         c.execute("ALTER TABLE admins ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) DEFAULT 'System'")
         
-        # Check if default admin exists
         c.execute("SELECT COUNT(*) FROM admins")
         if c.fetchone()[0] == 0:
             c.execute("INSERT INTO admins (username, password, role, created_by) VALUES (%s, %s, 'super_admin', 'System')", ("admin", "password123"))
         conn.commit()
         conn.close()
-        print("✅ Database connected and initialized successfully.")
     except Exception as e:
         print(f"❌ DATABASE INITIALIZATION ERROR: {e}")
 
