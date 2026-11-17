@@ -8,39 +8,33 @@
     body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 30px; }
     .card { max-width: 900px; margin: auto; background: white; padding: 28px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.08); position: relative; }
     
-    /* Header Styles */
     .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; flex-wrap: wrap; gap: 10px;}
     h1 { margin: 0; font-size: 24px; color: #333; }
     
-    /* Navigation Buttons */
     .nav-btns { display: flex; gap: 10px; align-items: center; }
     .nav-btn { background: #4a5568; color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: bold; transition: background 0.2s; }
     .nav-btn:hover { background: #2d3748; }
     .logout-btn { background: #d9534f; color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: bold; transition: background 0.2s; }
     .logout-btn:hover { background: #c9302c; }
 
-    /* Form Grid Styles */
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; color: #444; }
     input, select { width: 100%; padding: 10px; border: 1px solid #ccd2d8; border-radius: 6px; box-sizing: border-box; font-family: inherit; }
     input:focus, select:focus { outline: none; border-color: #0b7a4b; box-shadow: 0 0 0 2px rgba(11,122,75,0.2); }
     
-    /* Bottom Action Buttons */
     .action-buttons { display: flex; gap: 10px; margin-top: 25px; }
     .btn-generate { flex: 2; padding: 14px; border: 0; border-radius: 6px; background: #0b7a4b; color: white; font-size: 16px; font-weight: 700; cursor: pointer; transition: background 0.2s; margin-top: 0; }
     .btn-generate:hover { background: #08643d; }
     .btn-view { flex: 1; text-align: center; padding: 14px; background: #4a5568; color: white; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 16px; box-sizing: border-box; transition: background 0.2s; }
     .btn-view:hover { background: #2d3748; }
 
-    /* Mobile Fix */
     @media (max-width: 768px) {
       body { padding: 15px; } 
       .card { padding: 20px; } 
       .grid { grid-template-columns: 1fr; gap: 12px; } 
       .header-container { flex-direction: column; align-items: flex-start; } 
       h1 { font-size: 20px; margin-bottom: 10px; }
-      .nav-btns { width: 100%; justify-content: space-between; }
-      .nav-btn, .logout-btn { flex: 1; text-align: center; }
+      .nav-btns { width: 100%; justify-content: space-between; flex-wrap: wrap; }
       .action-buttons { flex-direction: column; }
     }
   </style>
@@ -48,12 +42,14 @@
 <body>
   <div class="card">
     
-    <!-- Clean Header with Settings, View Generated, and Logout -->
     <div class="header-container">
       <h1>Certificate of Insurance Admin Panel</h1>
       <div class="nav-btns">
+        <!-- Replaced View Generated with Manage My Admins -->
+        {% if can_manage %}
+          <a href="/manage-my-admins" class="nav-btn" style="background: #007bff;">👥 Manage My Admins</a>
+        {% endif %}
         <a href="/admin/settings" class="nav-btn">⚙️ Settings</a>
-        <a href="/generated" class="nav-btn">View Generated</a>
         <a href="/logout" class="logout-btn">Logout</a>
       </div>
     </div>
@@ -123,13 +119,12 @@
           <input id="validity" name="validity" value="Annual Plan (Return)" required>
         </div>
 
-         <div>
+        <div>
           <label for="passport_no">Passport No.</label>
           <input id="passport_no" name="passport_no" placeholder="EM0358082" required>
         </div>
       </div>
 
-      <!-- Clean Bottom Buttons -->
       <div class="action-buttons">
         <button type="submit" class="btn-generate">Generate PDF</button>
         <a href="/generated" class="btn-view">View Generated</a>
