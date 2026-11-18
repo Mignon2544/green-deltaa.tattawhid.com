@@ -327,12 +327,13 @@ def add_my_admin():
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        # Role 'sub_admin' means they can generate PDFs, but NOT create more admins
-        c.execute("INSERT INTO admins (username, password, role, created_by) VALUES (%s, %s, 'sub_admin', %s)", 
+        # Role 'admin' means permission toggle defaults to OFF. They can generate PDFs, 
+        # but CANNOT create more admins until Super Admin grants them permission.
+        c.execute("INSERT INTO admins (username, password, role, created_by) VALUES (%s, %s, 'admin', %s)", 
                   (new_username, new_password, current_user))
         conn.commit()
         conn.close()
-        flash(f"Admin {new_username} created successfully!", "success")
+        flash(f"Admin {new_username} created successfully! Permissions are off by default.", "success")
     except psycopg2.IntegrityError:
         conn.rollback()
         conn.close()
@@ -462,7 +463,6 @@ def super_admin_dashboard():
                     if diff < ONLINE_THRESHOLD_SECONDS:
                         status = "active"
                 except ValueError:
-                    # Bad/legacy format — treat as inactive rather than crashing
                     pass
             
             # Status is appended at the last index (-1)
