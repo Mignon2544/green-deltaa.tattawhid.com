@@ -395,8 +395,8 @@ def generate():
         s3_client.put_object(Bucket=R2_BUCKET_NAME, Key=object_key, Body=pdf_bytes.getvalue(), ContentType='application/pdf')
         
         return f"""<div style="font-family: Arial; text-align: center; margin-top: 50px;">
-            <h2 style="color: green;">✅ PDF Generated & Uploaded!</h2>
-            <a href="{qr_link}" target="_blank" style="padding: 10px 20px; background: #0b7a4b; color: white; text-decoration: none; border-radius: 5px;">View / Download PDF</a>
+            <h2 style="color: green;">PDF Generated</h2>
+            <a href="{qr_link}" target="_blank" style="padding: 10px 20px; background: #0b7a4b; color: white; text-decoration: none; border-radius: 5px;">Download</a>
             <br><br><a href="https://green-deltainsurance.com/" style="color: #333;">← Back to Admin Panel</a></div>"""
     except Exception as e: 
         return f"An error occurred: {e}", 500
