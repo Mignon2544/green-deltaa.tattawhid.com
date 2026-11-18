@@ -176,6 +176,36 @@ def generate_pdf(form: dict, qr_link: str) -> io.BytesIO:
     return output
 
 # --- ROUTES ---
+@app.route('/delete-my-admin/<int:id>', methods=['POST'])
+def delete_my_admin(id):
+    if not session.get('logged_in'): 
+        return redirect(url_for('login'))
+    
+    current_user = session.get('admin_username')
+    
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # First, verify this admin was actually created by the current user
+        c.execute("SELECT created_by FROM admins WHERE id=%s", (id,))
+        result = c.fetchone()
+        
+        if result and result[0] == current_user:
+            # Safe to delete
+            c.execute("DELETE FROM admins WHERE id=%s", (id,))
+            conn.commit()
+            flash("Sub-admin deleted successfully.", "success")
+        else:
+            # Attempted to delete someone they didn't create
+            flash("Unauthorized to delete this user.", "error")
+            
+        conn.close()
+    except Exception as e:
+        flash(f"Error deleting user: {e}", "error")
+        
+    return redirect(url_for('manage_my_admins'))
+
 @app.route('/super-admin/set-permission/<int:id>/<action>', methods=['GET'])
 def set_permission(id, action):
     if not session.get('super_admin'): 
