@@ -155,6 +155,10 @@ def set_permission(id, action):
     if not session.get('super_admin'): 
         return redirect(url_for('super_admin_login'))
     
+    if action not in ('grant', 'revoke'):
+        flash("Invalid permission action.", "error")
+        return redirect(url_for('super_admin_dashboard'))
+    
     new_role = 'sub_admin' if action == 'grant' else 'admin'
     created_by = 'Super Admin' if action == 'grant' else 'System'
     
@@ -166,7 +170,7 @@ def set_permission(id, action):
     
     flash("Permissions updated successfully.", "success")
     return redirect(url_for('super_admin_dashboard'))
-
+    
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
