@@ -41,6 +41,10 @@ s3_client = boto3.client(
 
 TEMPLATE_PDF = Path("certificate_template.pdf")
 
+# --- STATUS WINDOW (seconds) ---
+# A user is considered "online" if they made a request in the last 5 minutes.
+ONLINE_THRESHOLD_SECONDS = 300
+
 # --- DATABASE INITIALIZATION (PostgreSQL) ---
 def get_db_connection():
     if "?" in DATABASE_URL:
@@ -77,6 +81,28 @@ def init_db():
         print(f"❌ DATABASE INITIALIZATION ERROR: {e}")
 
 init_db()
+
+# --- ACTIVITY TRACKING (makes "online" mean "recently active") ---
+@app.before_request
+def update_activity():
+    """
+    Updates last_login on every authenticated request so the super-admin
+    dashboard's online/offline badge reflects real activity, not just login time.
+    """
+    username = session.get('admin_username')
+    if not username:
+        return
+    # Skip static files and super-admin-only routes (no admin_username session there anyway)
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("UPDATE admins SET last_login=%s WHERE username=%s",
+                  (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), username))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        # Never block a request because of activity logging
+        print(f"⚠️ activity update failed: {e}")
 
 # --- PDF GENERATION HELPERS ---
 def generate_key():
@@ -170,7 +196,7 @@ def set_permission(id, action):
     
     flash("Permissions updated successfully.", "success")
     return redirect(url_for('super_admin_dashboard'))
-    
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -432,12 +458,14 @@ def super_admin_dashboard():
             if last_login_str:
                 try:
                     last_login_time = datetime.strptime(last_login_str, "%Y-%m-%d %H:%M:%S")
-                    if (now - last_login_time).total_seconds() < 900:
+                    diff = (now - last_login_time).total_seconds()
+                    if diff < ONLINE_THRESHOLD_SECONDS:
                         status = "active"
                 except ValueError:
+                    # Bad/legacy format — treat as inactive rather than crashing
                     pass
             
-            # We append status at index 9
+            # Status is appended at the last index (-1)
             admin_list.append(status) 
             admins.append(admin_list)
             
