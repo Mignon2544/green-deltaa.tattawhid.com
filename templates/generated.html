@@ -40,15 +40,44 @@
     .btn-delete-single { background: #ffebeb; color: #d9534f; border-color: #f5c6cb; }
     .btn-delete-single:hover { background: #f5c6cb; }
 
-    @media (max-width: 600px) {
+    /* 👇 UPDATED MOBILE VIEW STYLING 👇 */
+    @media (max-width: 650px) {
       body { padding: 15px; }
       .card { padding: 15px; }
-      .header-container { flex-direction: column; align-items: flex-start; }
-      .toolbar { flex-direction: column; gap: 10px; align-items: stretch; }
-      .file-item { flex-wrap: wrap; }
-      .file-info { width: 100%; order: 3; margin-top: 10px; }
-      .actions { width: 100%; order: 4; justify-content: space-between; margin-top: 10px; }
-      .action-btn { flex-grow: 1; }
+      
+      /* Make header buttons stack and fill width */
+      .header-container { flex-direction: column; align-items: stretch; }
+      .nav-btns { flex-direction: column; }
+      .nav-btn, .logout-btn { text-align: center; }
+      
+      /* Toolbar adjustments */
+      .toolbar { flex-direction: column; gap: 15px; align-items: stretch; text-align: center; }
+      .delete-btn { width: 100%; }
+
+      /* Turn the row into a grid on mobile */
+      .file-item { 
+        display: grid; 
+        grid-template-columns: auto auto 1fr; 
+        grid-template-rows: auto auto;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .checkbox-wrapper { grid-column: 1; grid-row: 1; }
+      .thumb { grid-column: 2; grid-row: 1; }
+      .file-info { grid-column: 3; grid-row: 1; }
+      
+      /* Push actions to a full-width second row */
+      .actions { 
+        grid-column: 1 / -1; 
+        grid-row: 2; 
+        justify-content: stretch; 
+        margin-top: 5px;
+        gap: 10px;
+      }
+      
+      /* Make the action buttons fill the space evenly */
+      .action-btn { flex: 1; padding: 12px 0; font-size: 15px; }
     }
   </style>
 </head>
@@ -89,12 +118,10 @@
           </div>
 
           <div class="actions">
-            <!-- THIS IS THE UPDATED LINK -->
             <a href="https://green-deltainsurance.com/{{ file.rel_path }}" target="_blank" class="action-btn btn-view" title="View PDF">
               👁️ View
             </a>
             
-            <!-- Share button with updated link logic -->
             <button type="button" class="action-btn btn-share" onclick="copyLink(this)" data-link="https://green-deltainsurance.com/{{ file.rel_path }}" title="Copy Share Link">
               🔗 Share
             </button>
