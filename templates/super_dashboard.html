@@ -99,12 +99,12 @@
   <label class="switch">
     <input type="checkbox" 
            id="toggle-{{ admin[0] }}"
-           {% if admin[7] == 'sub_admin' %}checked{% endif %}
+           {% if admin[6] == 'sub_admin' %}checked{% endif %}
            onchange="window.location.href='/super-admin/set-permission/{{ admin[0] }}/' + (this.checked ? 'grant' : 'revoke');">
     <span class="slider"></span>
   </label>
   <span class="switch-label" id="label-{{ admin[0] }}">
-    {% if admin[7] == 'sub_admin' %}On{% else %}Off{% endif %}
+    {% if admin[6] == 'sub_admin' %}On{% else %}Off{% endif %}
   </span>
 </div>
 
